@@ -1330,7 +1330,7 @@ async function initSupabase() {
         Object.assign(state, incoming);
         const wbActive    = document.getElementById('screen-whiteboard').classList.contains('active');
         const adminActive = document.getElementById('screen-admin').classList.contains('active');
-        if (wbActive && canvasEventsReady) renderBoard();
+        if (wbActive && canvasEventsReady && !isUserTyping()) renderBoard();
         if (adminActive) refreshAdminViews();
         updatePresenceDot(true);
       })
@@ -1499,10 +1499,21 @@ if (bc) {
       Object.assign(state, e.data.state);
       const wbActive    = document.getElementById('screen-whiteboard').classList.contains('active');
       const adminActive = document.getElementById('screen-admin').classList.contains('active');
-      if (wbActive && canvasEventsReady) renderBoard();
+      if (wbActive && canvasEventsReady && !isUserTyping()) renderBoard();
       if (adminActive) refreshAdminViews();
     }
   };
+}
+
+// Returns true if the user is actively typing in any input on the board
+// — prevents remote sync re-renders from wiping active text inputs
+function isUserTyping() {
+  const active = document.activeElement;
+  if (!active) return false;
+  const tag = active.tagName.toLowerCase();
+  if (tag === 'textarea' || tag === 'input') return true;
+  if (active.contentEditable === 'true') return true;
+  return false;
 }
 
 loadState();      // instant local restore
@@ -2109,7 +2120,6 @@ function deleteStickyTab(e, stickyId, cardId) {
 }
 
 function openStickyInputForCard(cardId, gutter) {
-  // Inline mini-input inside the gutter
   const existing = gutter.querySelector('.sticky-inline-input');
   if (existing) { existing.remove(); return; }
 
@@ -2117,36 +2127,51 @@ function openStickyInputForCard(cardId, gutter) {
   wrap.className = 'sticky-inline-input';
   wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
 
+  // Stop ALL pointer events on the wrap from reaching the card drag handler
+  wrap.addEventListener('pointerdown', e => e.stopPropagation());
+
   const colorRow = document.createElement('div');
   colorRow.style.cssText = 'display:flex;gap:3px;';
   const stickyColors = ['#FFF9C4','#FCE4EC','#E3F2FD','#F1F8E9'];
   let chosenColor = stickyColors[0];
   stickyColors.forEach(col => {
     const sw = document.createElement('div');
-    sw.style.cssText = `width:12px;height:12px;border-radius:50%;background:${col};cursor:pointer;border:1.5px solid rgba(0,0,0,0.15);`;
-    sw.onclick = () => { chosenColor = col; colorRow.querySelectorAll('div').forEach(d => d.style.outline='none'); sw.style.outline='2px solid #223343'; };
+    sw.style.cssText = `width:12px;height:12px;border-radius:50%;background:${col};cursor:pointer;border:1.5px solid rgba(0,0,0,0.15);flex-shrink:0;`;
+    sw.addEventListener('pointerdown', e => e.stopPropagation());
+    sw.onclick = () => {
+      chosenColor = col;
+      colorRow.querySelectorAll('div').forEach(d => d.style.outline = 'none');
+      sw.style.outline = '2px solid #223343';
+      // Restore focus to textarea after color pick
+      ta.focus();
+    };
     colorRow.appendChild(sw);
   });
 
   const ta = document.createElement('textarea');
-  ta.placeholder = 'Note…';
-  ta.style.cssText = 'width:50px;height:50px;font-size:0.65rem;border:1px solid rgba(0,0,0,0.15);border-radius:4px;padding:3px;resize:none;font-family:DM Sans,sans-serif;';
+  ta.placeholder = 'Type your note…';
+  ta.style.cssText = 'width:50px;height:60px;font-size:0.65rem;border:1.5px solid rgba(0,178,205,0.5);border-radius:4px;padding:4px;resize:none;font-family:DM Sans,sans-serif;outline:none;background:white;';
+
+  // Stop ALL events on the textarea from bubbling to drag/canvas handlers
   ta.addEventListener('pointerdown', e => e.stopPropagation());
   ta.addEventListener('keydown', e => {
+    e.stopPropagation(); // prevent canvas shortcuts
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveInlineSticky(); }
-    if (e.key === 'Escape') wrap.remove();
-    e.stopPropagation();
+    if (e.key === 'Escape') { wrap.remove(); }
   });
 
   const saveBtn = document.createElement('button');
-  saveBtn.textContent = 'Add';
-  saveBtn.style.cssText = 'font-size:0.6rem;padding:2px;border:none;background:var(--navy);color:white;border-radius:3px;cursor:pointer;';
+  saveBtn.textContent = 'Add ✓';
+  saveBtn.style.cssText = 'font-size:0.6rem;padding:3px;border:none;background:var(--navy);color:white;border-radius:3px;cursor:pointer;';
+  saveBtn.addEventListener('pointerdown', e => e.stopPropagation());
 
   function saveInlineSticky() {
     const text = ta.value.trim();
-    if (!text) { wrap.remove(); return; }
+    wrap.remove(); // remove first so renderBoard doesn't find an orphaned input
+    if (!text) return;
     state.stickies.push({ id: 'sticky_' + Date.now(), cardId, color: chosenColor, text, x: 0, y: 0 });
-    broadcastAndSave(); renderBoard();
+    broadcastAndSave();
+    renderBoard();
   }
 
   saveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveInlineSticky(); });
@@ -2154,9 +2179,9 @@ function openStickyInputForCard(cardId, gutter) {
   wrap.appendChild(ta);
   wrap.appendChild(saveBtn);
 
-  // Insert before the add button
   gutter.insertBefore(wrap, gutter.lastElementChild);
-  ta.focus();
+  // Small delay so the opening click doesn't immediately blur
+  setTimeout(() => ta.focus(), 30);
 }
 
 function deleteCard(e, cardId) {
@@ -2189,7 +2214,7 @@ function renderTextEl(t) {
   div.style.color = t.color || '#223343';
   div.style.backgroundColor = t.highlight || 'transparent';
   div.dataset.id = t.id;
-  div.innerHTML = (t.text || 'Text') + '<span class="edit-hint">double-click to edit</span>';
+  div.innerHTML = (t.text || 'Text') + '<span class="edit-hint">click to edit · drag to move</span>';
 
   // Delete button — appears on hover
   const delBtn = document.createElement('button');
@@ -2204,7 +2229,9 @@ function renderTextEl(t) {
   delBtn.addEventListener('pointerdown', e => e.stopPropagation());
   div.appendChild(delBtn);
 
-  div.addEventListener('dblclick', (e) => {
+  // Single click in text tool mode OR double-click in any mode opens editor
+  div.addEventListener('click', (e) => {
+    if (e.target === delBtn) return;
     e.stopPropagation();
     openTextEditOverlay(div, t);
   });
@@ -2225,35 +2252,52 @@ function openTextEditOverlay(div, t) {
   ta.style.top = t.y + 'px';
   ta.style.color = t.color || '#223343';
   ta.style.backgroundColor = t.highlight && t.highlight !== 'transparent' ? t.highlight : 'white';
-  // Auto-size
-  ta.style.width = Math.max(120, div.offsetWidth + 4) + 'px';
+  ta.style.width = Math.max(140, div.offsetWidth + 4) + 'px';
   ta.style.height = Math.max(40, div.offsetHeight + 4) + 'px';
 
   ta.addEventListener('input', () => {
-    // Auto-grow height
     ta.style.height = 'auto';
     ta.style.height = Math.max(40, ta.scrollHeight) + 'px';
   });
 
+  let committed = false;
   const commit = () => {
+    if (committed) return;
+    committed = true;
     t.text = ta.value.trim() || 'Text';
     ta.remove();
+    document.removeEventListener('pointerdown', outsideClick, true);
     broadcastAndSave();
     renderBoard();
   };
 
+  // Keyboard: Enter saves, Escape cancels, Shift+Enter is a newline
   ta.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { ta.remove(); renderBoard(); }
+    if (e.key === 'Escape') {
+      committed = true;
+      ta.remove();
+      document.removeEventListener('pointerdown', outsideClick, true);
+      renderBoard();
+    }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(); }
     e.stopPropagation();
   });
 
-  ta.addEventListener('blur', commit);
-  ta.addEventListener('pointerdown', (e) => e.stopPropagation()); // don't trigger canvas pan
+  // Click outside the textarea commits — reliable cross-device
+  const outsideClick = (e) => {
+    if (!ta.contains(e.target)) commit();
+  };
+
+  // Stop pointer events on the textarea itself from bubbling to canvas pan
+  ta.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   canvas.appendChild(ta);
-  ta.focus();
-  ta.select();
+  // Register outside-click listener after a tick so the opening click doesn't immediately commit
+  setTimeout(() => {
+    document.addEventListener('pointerdown', outsideClick, true);
+    ta.focus();
+    ta.select();
+  }, 50);
 }
 
 const var_navy = '#223343';
@@ -2291,8 +2335,24 @@ function renderStickyEl(s) {
   div.style.left = s.x + 'px'; div.style.top = s.y + 'px';
   div.style.background = s.color || '#FFF9C4';
   div.innerHTML = `<div class="sticky-handle">· · ·</div><textarea placeholder="Note…">${s.text || ''}</textarea>`;
-  const ta = div.querySelector('textarea');
-  ta.oninput = ev => { s.text = ev.target.value; broadcastAndSave(); };
+  let stickyTypingTimer = null;
+  ta.addEventListener('input', ev => {
+    s.text = ev.target.value;
+    // Debounce — save 600ms after user stops typing, no renderBoard()
+    clearTimeout(stickyTypingTimer);
+    stickyTypingTimer = setTimeout(() => {
+      saveState(); // save to Supabase/localStorage but do NOT call renderBoard
+    }, 600);
+  });
+  ta.addEventListener('blur', () => {
+    // On blur, flush immediately
+    clearTimeout(stickyTypingTimer);
+    s.text = ta.value;
+    saveState();
+  });
+  // Stop keystrokes from triggering canvas shortcuts
+  ta.addEventListener('keydown', e => e.stopPropagation());
+  ta.addEventListener('pointerdown', e => e.stopPropagation());
 
   // Delete button — appears on hover
   const delBtn = document.createElement('button');
@@ -2384,15 +2444,17 @@ function setupCardDrag(div, card) {
 
 // Universal drag — works with mouse AND touch (pointer events API)
 function setupFreeDrag(div, obj, alwaysDraggable) {
-  let pdx = 0, pdy = 0, startObjX = 0, startObjY = 0, dragging = false;
+  let pdx = 0, pdy = 0, startObjX = 0, startObjY = 0;
+  let dragging = false, hasMoved = false;
+  const DRAG_THRESHOLD = 4; // px — below this it's a click, not a drag
 
   div.addEventListener('pointerdown', (e) => {
+    if (e.target.classList.contains('delete-btn')) return;
     e.stopPropagation();
     div.setPointerCapture(e.pointerId);
-    dragging = true;
+    dragging = true; hasMoved = false;
     pdx = e.clientX; pdy = e.clientY;
     startObjX = obj.x || 0; startObjY = obj.y || 0;
-    div.style.zIndex = 200;
     div.style.transition = 'none';
   });
 
@@ -2400,6 +2462,9 @@ function setupFreeDrag(div, obj, alwaysDraggable) {
     if (!dragging) return;
     const dx = (e.clientX - pdx) / wbScale;
     const dy = (e.clientY - pdy) / wbScale;
+    if (!hasMoved && Math.hypot(e.clientX - pdx, e.clientY - pdy) < DRAG_THRESHOLD) return;
+    hasMoved = true;
+    div.style.zIndex = 200;
     const nx = startObjX + dx;
     const ny = startObjY + dy;
     div.style.left = nx + 'px';
@@ -2412,10 +2477,11 @@ function setupFreeDrag(div, obj, alwaysDraggable) {
     dragging = false;
     div.style.zIndex = '';
     div.style.transition = '';
-    broadcastAndSave();
+    if (hasMoved) broadcastAndSave();
+    hasMoved = false;
   });
 
-  div.addEventListener('pointercancel', () => { dragging = false; });
+  div.addEventListener('pointercancel', () => { dragging = false; hasMoved = false; });
 }
 
 // ============================================================
