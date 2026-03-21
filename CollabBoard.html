@@ -1,0 +1,2740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CollabBoard — Collaborative Whiteboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #223343;
+    --red: #CA433C;
+    --olive: #9EA700;
+    --cyan: #00B2CD;
+    --amber: #FFBA00;
+    --bg: #F4F1EC;
+    --surface: #FDFBF8;
+    --border: rgba(34,51,67,0.12);
+    --text: #1a2830;
+    --muted: #6b7f8a;
+    --shadow: 0 4px 24px rgba(34,51,67,0.12);
+    --shadow-lg: 0 12px 48px rgba(34,51,67,0.18);
+    --radius: 12px;
+    --sticky-yellow: #FFF9C4;
+    --sticky-pink: #FCE4EC;
+    --sticky-blue: #E3F2FD;
+    --sticky-green: #F1F8E9;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+  /* ===== SCREENS ===== */
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ===== LANDING ===== */
+  #screen-landing {
+    background: var(--navy);
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .landing-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(0,178,205,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(255,186,0,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 60% 80%, rgba(202,67,60,0.1) 0%, transparent 50%);
+  }
+  .landing-content { position: relative; z-index: 1; text-align: center; padding: 40px; }
+  .landing-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 3.5rem;
+    color: white;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .landing-logo span { color: var(--cyan); font-style: italic; }
+  .landing-sub { color: rgba(255,255,255,0.5); font-size: 1rem; margin-bottom: 48px; font-weight: 300; }
+  .landing-cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .landing-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 240px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+  .landing-card:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); transform: translateY(-4px); }
+  .landing-card-icon { font-size: 2.5rem; margin-bottom: 16px; }
+  .landing-card h3 { color: white; font-size: 1.1rem; margin-bottom: 8px; font-weight: 600; }
+  .landing-card p { color: rgba(255,255,255,0.5); font-size: 0.85rem; line-height: 1.5; }
+
+  /* ===== MODAL / OVERLAY ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(10,20,30,0.6);
+    backdrop-filter: blur(8px); z-index: 1000;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 20px;
+    padding: 40px; width: min(480px, 90vw);
+    box-shadow: var(--shadow-lg);
+    animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes modalIn { from { transform: scale(0.85) translateY(20px); opacity: 0; } }
+  .modal h2 { font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--navy); margin-bottom: 6px; }
+  .modal p { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
+  .modal-code-input {
+    display: flex; gap: 12px; flex-direction: column;
+  }
+  .inp {
+    width: 100%; padding: 14px 18px;
+    border: 2px solid var(--border); border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 1rem;
+    background: var(--bg); color: var(--text);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .inp:focus { border-color: var(--cyan); }
+  .inp.error { border-color: var(--red); animation: shake 0.4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .btn {
+    padding: 13px 24px; border-radius: 10px; border: none;
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--navy); color: white; width: 100%; justify-content: center; }
+  .btn-primary:hover { background: #1a2830; transform: translateY(-1px); }
+  .btn-cyan { background: var(--cyan); color: white; }
+  .btn-cyan:hover { background: #009ab3; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-red:hover { background: #b03830; }
+  .btn-olive { background: var(--olive); color: white; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-sm { padding: 8px 14px; font-size: 0.8rem; }
+  .error-msg { color: var(--red); font-size: 0.8rem; display: none; }
+  .error-msg.show { display: block; }
+
+  /* ===== ADMIN SCREEN ===== */
+  #screen-admin {
+    background: var(--bg);
+    flex-direction: row;
+  }
+  .admin-sidebar {
+    width: 280px; background: var(--navy);
+    display: flex; flex-direction: column;
+    padding: 32px 24px; gap: 8px; flex-shrink: 0;
+  }
+  .admin-logo {
+    font-family: 'DM Serif Display', serif;
+    color: white; font-size: 1.4rem; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .admin-logo span { color: var(--cyan); font-style: italic; }
+  .admin-nav-item {
+    padding: 12px 16px; border-radius: 10px;
+    color: rgba(255,255,255,0.6); cursor: pointer;
+    transition: all 0.2s; font-size: 0.9rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .admin-nav-item:hover, .admin-nav-item.active {
+    background: rgba(255,255,255,0.1); color: white;
+  }
+  .admin-nav-item.active { background: var(--cyan); color: white; }
+  .admin-main { flex: 1; overflow-y: auto; padding: 40px; }
+  .admin-section { display: none; }
+  .admin-section.active { display: block; }
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem; color: var(--navy); margin-bottom: 6px;
+  }
+  .section-sub { color: var(--muted); margin-bottom: 32px; }
+  .config-card {
+    background: var(--surface); border-radius: 16px;
+    padding: 28px; border: 1px solid var(--border);
+    margin-bottom: 20px; box-shadow: 0 2px 8px rgba(34,51,67,0.06);
+  }
+  .config-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--navy); }
+  .grid-control { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .grid-control label { font-size: 0.85rem; color: var(--muted); width: 80px; }
+  .num-input {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .num-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg);
+    cursor: pointer; font-size: 1.2rem; color: var(--navy);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .num-btn:hover { background: var(--navy); color: white; }
+  .num-display {
+    width: 48px; text-align: center;
+    font-family: 'JetBrains Mono'; font-weight: 500;
+    font-size: 1.1rem; color: var(--navy);
+  }
+  .grid-preview {
+    width: 100%; height: 200px;
+    border: 2px dashed var(--border); border-radius: 10px;
+    display: grid; gap: 2px; overflow: hidden;
+  }
+  .grid-preview-cell {
+    background: rgba(0,178,205,0.08);
+    border: 1px solid rgba(0,178,205,0.2);
+    border-radius: 2px;
+  }
+  .prompt-row {
+    display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;
+  }
+  .prompt-row textarea {
+    flex: 1; padding: 12px 14px;
+    border: 2px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans'; font-size: 0.9rem;
+    background: var(--bg); color: var(--text);
+    resize: vertical; min-height: 60px; outline: none;
+  }
+  .prompt-row textarea:focus { border-color: var(--cyan); }
+  .codes-display {
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .code-chip {
+    background: var(--navy); color: white;
+    padding: 10px 18px; border-radius: 10px;
+    font-family: 'JetBrains Mono'; font-size: 1.1rem;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .code-chip small { font-family: 'DM Sans'; font-size: 0.7rem; opacity: 0.6; }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  }
+  .badge-active { background: rgba(158,167,0,0.15); color: var(--olive); }
+  .badge-none { background: rgba(202,67,60,0.1); color: var(--red); }
+  .submissions-list { display: flex; flex-direction: column; gap: 12px; }
+  .submission-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .submission-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--cyan); display: flex; align-items: center;
+    justify-content: center; color: white; font-weight: 700;
+    font-size: 1rem; flex-shrink: 0;
+  }
+
+  /* ===== PROMPT SCREEN ===== */
+  #screen-prompt {
+    background: linear-gradient(150deg, #EBF7FA 0%, #F4F1EC 50%, #F7EDE8 100%);
+    align-items: center; justify-content: flex-start;
+    padding: 20px; overflow-y: auto;
+  }
+  .prompt-container {
+    background: var(--surface); border-radius: 24px;
+    padding: 28px 36px; width: min(700px, 100%);
+    box-shadow: 0 8px 40px rgba(34,51,67,0.1), 0 2px 8px rgba(34,51,67,0.06);
+    margin: auto 0;
+    border: 1px solid rgba(255,255,255,0.8);
+  }
+  .prompt-header { margin-bottom: 20px; }
+  .prompt-header .prompt-eyebrow {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--cyan); margin-bottom: 6px;
+  }
+  .prompt-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.7rem; color: var(--navy); margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .prompt-header p { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+  .prompt-block {
+    background: var(--bg); border-radius: 14px;
+    padding: 16px; margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .prompt-block label {
+    display: block; font-weight: 600; color: var(--navy);
+    margin-bottom: 12px; font-size: 0.95rem;
+  }
+  .prompt-block textarea {
+    width: 100%; min-height: 100px;
+    border: 2px solid var(--border); border-radius: 10px;
+    padding: 14px; font-family: 'DM Sans'; font-size: 0.95rem;
+    background: white; color: var(--text); resize: vertical; outline: none;
+    transition: border-color 0.2s;
+  }
+  .prompt-block textarea:focus { border-color: var(--cyan); }
+  .url-paste-block {
+    border: 2px solid var(--border); border-radius: 12px;
+    padding: 20px; background: white; margin-top: 4px;
+  }
+  .url-paste-row {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+  }
+  .url-paste-row input {
+    flex: 1; padding: 10px 14px;
+    border: 2px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans'; font-size: 0.9rem;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color 0.2s;
+  }
+  .url-paste-row input:focus { border-color: var(--cyan); }
+  .url-paste-row input.url-error { border-color: var(--red); animation: shake 0.4s; }
+  .url-add-btn {
+    padding: 10px 16px; background: var(--navy); color: white;
+    border: none; border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans'; font-size: 0.85rem; font-weight: 600;
+    white-space: nowrap; transition: background 0.2s;
+  }
+  .url-add-btn:hover { background: var(--cyan); }
+  .url-hint {
+    font-size: 0.75rem; color: var(--muted); line-height: 1.5; margin-bottom: 12px;
+  }
+  .url-list { display: flex; flex-direction: column; gap: 6px; }
+  .url-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; font-size: 0.8rem;
+  }
+  .url-chip .url-preview-img {
+    width: 32px; height: 32px; border-radius: 4px;
+    object-fit: cover; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .url-chip .url-text {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--navy);
+  }
+  .url-chip .url-type-badge {
+    font-size: 0.68rem; padding: 2px 7px; border-radius: 10px;
+    background: rgba(0,178,205,0.1); color: var(--cyan); font-weight: 600;
+    white-space: nowrap;
+  }
+  .url-chip button {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1rem; line-height: 1; flex-shrink: 0;
+  }
+  .url-chip button:hover { color: var(--red); }
+  .name-row { display: flex; gap: 8px; margin-bottom: 16px; flex-direction: column; }
+  .name-row .name-label {
+    font-size: 0.85rem; font-weight: 600; color: var(--navy);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .name-row .name-label .req {
+    color: var(--red); font-size: 0.9rem;
+  }
+  .name-row .name-label .req-text {
+    color: var(--muted); font-size: 0.78rem; font-weight: 400; margin-left: 4px;
+  }
+  .name-row input {
+    padding: 14px 18px;
+    border: 2px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans'; font-size: 1.05rem;
+    background: white; color: var(--text); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+  }
+  .name-row input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,178,205,0.12); }
+  .name-row input.name-error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(202,67,60,0.12); animation: shake 0.4s; }
+  .name-error-msg { color: var(--red); font-size: 0.8rem; margin-top: 4px; display: none; }
+  .name-error-msg.show { display: block; }
+  .prompt-submit { margin-top: 28px; text-align: center; }
+  .btn-submit {
+    padding: 16px 48px; background: var(--navy); color: white;
+    border: none; border-radius: 12px; font-family: 'DM Sans';
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 10px;
+  }
+  .btn-submit:hover { background: var(--cyan); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,178,205,0.3); }
+
+  /* ===== WHITEBOARD SCREEN ===== */
+  #screen-whiteboard {
+    background: var(--bg);
+    flex-direction: column;
+  }
+  .wb-topbar {
+    height: 56px; background: var(--navy);
+    display: flex; align-items: center; padding: 0 20px;
+    gap: 16px; flex-shrink: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .wb-brand {
+    font-family: 'DM Serif Display', serif;
+    color: white; font-size: 1.2rem;
+  }
+  .wb-brand span { color: var(--cyan); font-style: italic; }
+  .wb-spacer { flex: 1; }
+  .wb-user-chip {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px; padding: 6px 14px;
+    color: white; font-size: 0.85rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .wb-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--cyan); display: flex; align-items: center;
+    justify-content: center; font-size: 0.7rem; font-weight: 700; color: white;
+  }
+  .wb-body {
+    flex: 1; display: flex; overflow: hidden;
+  }
+
+  /* Left toolbar — 80px with labels */
+  .wb-toolbar {
+    width: 80px; background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    align-items: center; padding: 12px 0; gap: 2px;
+    flex-shrink: 0; z-index: 50;
+    box-shadow: 2px 0 8px rgba(34,51,67,0.04);
+  }
+  .tool-sep { width: 48px; height: 1px; background: var(--border); margin: 6px 0; }
+  .tool-btn {
+    width: 64px; min-height: 52px; border-radius: 10px;
+    border: none; background: transparent;
+    cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px;
+    font-size: 1.2rem;
+    transition: all 0.15s; color: var(--muted);
+    position: relative;
+    padding: 6px 4px;
+  }
+  .tool-btn .tool-icon { font-size: 1.2rem; line-height: 1; }
+  .tool-btn .tool-label {
+    font-size: 0.58rem; font-weight: 600; letter-spacing: 0.03em;
+    text-transform: uppercase; line-height: 1;
+    color: inherit;
+  }
+  .tool-btn:hover { background: var(--bg); color: var(--navy); }
+  .tool-btn.active {
+    background: var(--navy); color: white;
+    box-shadow: 0 2px 8px rgba(34,51,67,0.2);
+  }
+  .tool-btn .tooltip {
+    position: absolute; left: 74px; top: 50%; transform: translateY(-50%);
+    background: var(--navy); color: white;
+    padding: 5px 10px; border-radius: 6px; font-size: 0.75rem;
+    white-space: nowrap; pointer-events: none; opacity: 0;
+    transition: opacity 0.2s; z-index: 200;
+  }
+  .tool-btn:hover .tooltip { opacity: 1; }
+
+  /* Text color picker popup */
+  .text-options-popup {
+    position: fixed; left: 84px; top: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px;
+    box-shadow: var(--shadow-lg); z-index: 300; width: 240px;
+    display: none;
+  }
+  .text-options-popup.open { display: block; }
+  .text-options-popup h4 { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .color-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .color-swatch {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    transition: transform 0.15s; border: 2px solid transparent;
+  }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-swatch.selected { border-color: var(--navy); transform: scale(1.15); }
+
+  /* Emoji picker popup */
+  .emoji-popup {
+    position: fixed; left: 84px; top: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px;
+    box-shadow: var(--shadow-lg); z-index: 300; width: 280px;
+    display: none;
+  }
+  .emoji-popup.open { display: block; }
+  .emoji-popup h4 { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .emoji-item {
+    font-size: 1.4rem; text-align: center; padding: 4px;
+    cursor: pointer; border-radius: 6px; transition: background 0.1s;
+  }
+  .emoji-item:hover { background: var(--bg); }
+
+  /* Sticky popup */
+  .sticky-popup {
+    position: fixed; left: 84px; top: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; width: 200px;
+    box-shadow: var(--shadow-lg); z-index: 300;
+    display: none;
+  }
+  .sticky-popup.open { display: block; }
+  .sticky-popup h4 { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; }
+  .sticky-colors { display: flex; gap: 8px; }
+  .sticky-color-btn {
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.15s;
+  }
+  .sticky-color-btn:hover { transform: scale(1.1); border-color: var(--navy); }
+
+  /* Canvas area */
+  .wb-canvas-wrap {
+    flex: 1; overflow: hidden; position: relative;
+    cursor: default;
+    /* Subtle dot grid — feels like a real working surface */
+    background-color: #F0EDE6;
+    background-image: radial-gradient(circle, rgba(34,51,67,0.18) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .wb-canvas-wrap.pan-mode { cursor: grab; }
+  .wb-canvas-wrap.pan-mode:active { cursor: grabbing; }
+  .wb-canvas {
+    position: absolute;
+    transform-origin: 0 0;
+  }
+
+  /* Grid */
+  .wb-grid {
+    position: absolute; top: 0; left: 0;
+    display: grid;
+    pointer-events: none;
+  }
+  .grid-cell {
+    border: 1.5px dashed rgba(34,51,67,0.18);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.38);
+    box-shadow: inset 0 2px 8px rgba(34,51,67,0.04);
+    pointer-events: all;
+    transition: background 0.2s, border-color 0.2s;
+    position: relative;
+    overflow: visible;
+  }
+  .grid-cell.highlight {
+    background: rgba(0,178,205,0.1);
+    border-color: rgba(0,178,205,0.5);
+    border-style: solid;
+    box-shadow: inset 0 2px 12px rgba(0,178,205,0.08), 0 0 0 2px rgba(0,178,205,0.15);
+  }
+  .grid-cell.occupied {
+    background: rgba(255,255,255,0.15);
+    border-color: transparent;
+    pointer-events: none;
+  }
+
+  .board-card {
+    position: absolute;
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(34,51,67,0.1), 0 6px 24px rgba(34,51,67,0.08);
+    border: 2px solid transparent;
+    cursor: grab;
+    overflow: visible;
+    z-index: 10;
+    transition: box-shadow 0.2s, transform 0.15s;
+    display: flex; flex-direction: column;
+    touch-action: none;
+  }
+  .board-card:active { cursor: grabbing; }
+  .board-card:hover {
+    box-shadow: 0 4px 16px rgba(34,51,67,0.14), 0 12px 40px rgba(34,51,67,0.12);
+    z-index: 20;
+  }
+  .board-card.selected { border-color: var(--cyan); z-index: 30; }
+  .board-card.snapping {
+    transform: scale(1.03);
+    box-shadow: 0 8px 32px rgba(0,178,205,0.25), 0 2px 8px rgba(34,51,67,0.1);
+  }
+
+  .card-header {
+    padding: 8px 10px 8px 8px;
+    border-radius: 12px 12px 0 0;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 40px; flex-shrink: 0;
+    position: relative;
+  }
+  /* Subtle colour wash on card top instead of full-bleed opaque */
+  .card-header::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 12px 12px 0 0;
+    background: rgba(255,255,255,0.12);
+    pointer-events: none;
+  }
+  .card-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; color: white;
+    flex-shrink: 0; letter-spacing: 0; z-index: 1;
+  }
+  .card-author {
+    color: white; font-size: 0.75rem; font-weight: 600;
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .card-btn {
+    background: rgba(255,255,255,0.2); border: none;
+    color: white; border-radius: 6px; padding: 3px 7px;
+    font-size: 0.72rem; cursor: pointer; transition: background 0.15s;
+    display: flex; align-items: center; gap: 3px; z-index: 1;
+  }
+  .card-btn:hover { background: rgba(255,255,255,0.35); }
+  /* Comment count badge */
+  .card-comment-count {
+    background: rgba(255,255,255,0.9);
+    color: var(--navy);
+    border-radius: 8px; padding: 0 5px;
+    font-size: 0.65rem; font-weight: 700;
+    min-width: 16px; text-align: center;
+    display: none;
+  }
+  .card-comment-count.has-comments { display: inline-block; }
+
+  .card-body {
+    padding: 10px 12px; flex: 1; overflow-y: auto;
+    font-size: 0.83rem; color: var(--text); line-height: 1.6;
+  }
+  /* Answer items — left accent bar instead of Q1 label */
+  .card-answer {
+    border-left: 2px solid;
+    padding: 3px 0 3px 8px;
+    margin-bottom: 7px;
+    opacity: 0.9;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+  .card-answer:last-child { margin-bottom: 0; }
+
+  /* ── Delete controls ── */
+  /* Hover-reveal delete button on free-floating board items */
+  .board-item-wrap {
+    position: absolute;
+  }
+  .delete-btn {
+    position: absolute; top: -8px; right: -8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--red); color: white; border: 2px solid white;
+    font-size: 0.65rem; cursor: pointer; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    transition: transform 0.15s;
+    line-height: 1; padding: 0;
+  }
+  .delete-btn:hover { transform: scale(1.2); }
+  /* Show on parent hover */
+  .board-text:hover .delete-btn,
+  .board-emoji:hover .delete-btn,
+  .board-sticky:hover .delete-btn { display: flex; }
+
+  /* Card delete button — shown to owner and admin */
+  .card-delete-btn {
+    background: rgba(255,255,255,0.15); border: none;
+    color: rgba(255,255,255,0.7); border-radius: 6px;
+    padding: 3px 6px; font-size: 0.72rem; cursor: pointer;
+    transition: all 0.15s; z-index: 1; line-height: 1;
+    display: none; /* shown by JS when owner/admin */
+  }
+  .card-delete-btn:hover { background: rgba(202,67,60,0.7); color: white; }
+
+  .card-attachments {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    padding: 6px 10px; border-top: 1px solid var(--border);
+    background: #f8f7f4; flex-shrink: 0;
+    pointer-events: all; /* ensure clicks reach links */
+  }
+  .card-attachments:empty { display: none; }
+
+  /* Anchor wrapper for image thumbnails */
+  .card-attach-link {
+    display: inline-block; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--border); pointer-events: all;
+    transition: transform 0.15s;
+  }
+  .card-attach-link:hover { transform: scale(1.08); }
+  .card-attach-link:focus { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .card-attach-thumb {
+    width: 44px; height: 44px; object-fit: cover; display: block;
+    pointer-events: none; /* let the <a> handle clicks */
+  }
+  .card-attach-file {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: white; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px;
+    font-size: 0.72rem; color: var(--navy);
+    white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis;
+    text-decoration: none; pointer-events: all; cursor: pointer;
+  }
+  .card-attach-file:hover { background: var(--bg); color: var(--cyan); }
+  .card-attach-file:focus { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 6px; }
+
+
+
+  /* Emoji zone */
+  .card-emoji-zone {
+    min-height: 28px; border-top: 1px solid var(--border);
+    padding: 3px 8px; display: flex; gap: 3px; flex-wrap: wrap;
+    align-items: center; background: var(--bg);
+    border-radius: 0 0 10px 10px; flex-shrink: 0;
+  }
+  .card-emoji {
+    font-size: 1.1rem; cursor: default;
+    animation: emojiSettle 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes emojiSettle { from { transform: translateY(-20px) scale(0.5); opacity: 0; } }
+
+  /* ── Sticky tab panel — sits in the right gutter of the cell ── */
+  .sticky-gutter {
+    position: absolute;
+    top: 0; right: -58px;   /* sits outside the card in the cell gutter */
+    width: 54px;
+    display: flex; flex-direction: column; gap: 3px;
+    z-index: 40;
+  }
+  .sticky-tab {
+    width: 52px;
+    border-radius: 4px 6px 6px 4px;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.13);
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    border-left: 3px solid rgba(0,0,0,0.1);
+    position: relative;
+  }
+  /* Collapsed: just a narrow colour tab showing a snippet */
+  .sticky-tab.collapsed {
+    height: 28px;
+    display: flex; align-items: center; padding: 0 5px;
+  }
+  .sticky-tab.collapsed .tab-preview {
+    font-size: 0.6rem; line-height: 1.2; color: rgba(0,0,0,0.55);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    width: 100%;
+  }
+  /* Expanded: full mini-note */
+  .sticky-tab.expanded {
+    min-height: 80px; padding: 6px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .sticky-tab.expanded .tab-text {
+    font-size: 0.68rem; line-height: 1.4; color: #444;
+    flex: 1; word-break: break-word;
+  }
+  .sticky-tab .tab-actions {
+    display: none; gap: 3px; justify-content: flex-end;
+  }
+  .sticky-tab.expanded .tab-actions { display: flex; }
+  .tab-btn {
+    background: rgba(0,0,0,0.1); border: none; border-radius: 3px;
+    font-size: 0.6rem; padding: 2px 4px; cursor: pointer; color: #333;
+  }
+  .tab-btn:hover { background: rgba(0,0,0,0.2); }
+  /* Add-sticky button at bottom of gutter */
+  .sticky-add-btn {
+    width: 52px; height: 24px; border-radius: 4px;
+    border: 1.5px dashed rgba(34,51,67,0.25);
+    background: transparent; cursor: pointer; font-size: 0.8rem;
+    color: var(--muted); display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .sticky-add-btn:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,178,205,0.05); }
+
+  /* Text elements on board */
+  /* board-text is NEVER contentEditable — editing happens via a floating overlay */
+  .board-text {
+    position: absolute; z-index: 15; cursor: grab;
+    padding: 6px 10px; border-radius: 6px;
+    font-family: 'DM Sans'; font-size: 1rem; font-weight: 500;
+    min-width: 60px;
+    border: 2px solid transparent;
+    user-select: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    touch-action: none;
+  }
+  .board-text:active { cursor: grabbing; }
+  .board-text:hover { border-color: rgba(0,178,205,0.4); }
+  .board-text .edit-hint {
+    display: none; position: absolute; bottom: -18px; left: 0;
+    font-size: 0.65rem; color: var(--muted); white-space: nowrap;
+    pointer-events: none;
+  }
+  .board-text:hover .edit-hint { display: block; }
+
+  /* Floating textarea overlay for editing text elements */
+  .text-edit-overlay {
+    position: absolute; z-index: 500;
+    border: 2px solid var(--cyan);
+    border-radius: 6px; padding: 5px 9px;
+    font-family: 'DM Sans'; font-size: 1rem; font-weight: 500;
+    outline: none; resize: none; overflow: hidden;
+    box-shadow: 0 0 0 4px rgba(0,178,205,0.15);
+    min-width: 80px; min-height: 32px;
+    background: white;
+  }
+
+  /* Floating emojis on board */
+  .board-emoji {
+    position: absolute; z-index: 15; cursor: grab;
+    font-size: 2rem; user-select: none;
+    transition: transform 0.15s;
+    touch-action: none;
+  }
+  .board-emoji:hover { transform: scale(1.2); }
+  .board-emoji:active { cursor: grabbing; }
+
+  /* Sticky on board */
+  .board-sticky {
+    position: absolute; z-index: 15; cursor: grab;
+    width: 140px; min-height: 100px;
+    border-radius: 4px;
+    font-family: 'DM Sans'; font-size: 0.85rem; line-height: 1.5;
+    box-shadow: 4px 4px 12px rgba(0,0,0,0.15);
+    touch-action: none;
+  }
+  .board-sticky:active { cursor: grabbing; }
+  .board-sticky .sticky-handle {
+    height: 20px; cursor: grab; background: rgba(0,0,0,0.08);
+    border-radius: 4px 4px 0 0; display: flex; align-items: center;
+    justify-content: center; font-size: 0.65rem; color: rgba(0,0,0,0.4);
+    letter-spacing: 0.1em;
+  }
+  .board-sticky .sticky-handle:active { cursor: grabbing; }
+  .board-sticky textarea {
+    width: 100%; border: none; background: transparent;
+    font-family: 'DM Sans'; font-size: 0.85rem; resize: none;
+    outline: none; color: inherit; line-height: 1.5; min-height: 60px;
+    padding: 6px; display: block;
+  }
+
+  /* Comment panel */
+  .comment-panel {
+    position: fixed; right: 0; top: 56px; bottom: 0;
+    width: 300px; background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 200; transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column;
+    box-shadow: -4px 0 24px rgba(34,51,67,0.08);
+  }
+  .comment-panel.open { transform: translateX(0); }
+  .comment-panel-header {
+    padding: 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .comment-panel-header h3 { font-size: 1rem; font-weight: 600; color: var(--navy); }
+  .close-panel {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.2rem; color: var(--muted);
+  }
+  .comments-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .comment-bubble {
+    background: var(--bg); border-radius: 10px; padding: 12px;
+    font-size: 0.85rem; line-height: 1.5;
+  }
+  .comment-bubble .author { font-weight: 600; color: var(--cyan); font-size: 0.8rem; margin-bottom: 4px; }
+  .comment-bubble .time { color: var(--muted); font-size: 0.72rem; float: right; }
+  .comment-input-area { padding: 16px; border-top: 1px solid var(--border); }
+  .comment-input-area textarea {
+    width: 100%; padding: 10px 14px; border: 2px solid var(--border);
+    border-radius: 10px; font-family: 'DM Sans'; font-size: 0.9rem;
+    resize: none; outline: none; height: 72px; background: var(--bg);
+  }
+  .comment-input-area textarea:focus { border-color: var(--cyan); }
+  .comment-submit {
+    margin-top: 10px; width: 100%; padding: 10px;
+    background: var(--cyan); color: white; border: none;
+    border-radius: 8px; cursor: pointer; font-family: 'DM Sans';
+    font-weight: 600; transition: background 0.2s;
+  }
+  .comment-submit:hover { background: #009ab3; }
+
+  /* Zoom controls */
+  .wb-zoom-controls {
+    position: absolute; bottom: 20px; right: 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 6px; display: flex;
+    gap: 4px; box-shadow: var(--shadow); z-index: 100;
+  }
+  .zoom-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    border: none; background: transparent; cursor: pointer;
+    font-size: 1.1rem; color: var(--navy); transition: background 0.15s;
+  }
+  .zoom-btn:hover { background: var(--bg); }
+  .zoom-level {
+    padding: 0 8px; display: flex; align-items: center;
+    font-family: 'JetBrains Mono'; font-size: 0.8rem; color: var(--muted);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--navy); color: white; padding: 12px 24px;
+    border-radius: 30px; font-size: 0.9rem; opacity: 0;
+    transition: all 0.3s; z-index: 9999; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Uploading card preview */
+  .upload-preview {
+    position: fixed; top: 70px; right: 20px;
+    background: var(--surface); border-radius: 14px;
+    padding: 16px; box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border); z-index: 500;
+    display: none; min-width: 240px;
+  }
+  .upload-preview.show { display: block; }
+  .upload-preview h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: var(--navy); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Animations */
+  .fade-in { animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--olive); display: inline-block;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+</style>
+</head>
+<body>
+
+<!-- ==================== LANDING ==================== -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-bg"></div>
+  <div class="landing-content">
+    <div class="landing-logo">Collab<span>Board</span></div>
+    <p class="landing-sub">A collaborative whiteboard for learning and thinking together</p>
+    <div class="landing-cards">
+      <div class="landing-card" onclick="openModal('admin')">
+        <div class="landing-card-icon">⚙️</div>
+        <h3>Admin Space</h3>
+        <p>Configure your board, set prompts, and manage your session.</p>
+      </div>
+      <div class="landing-card" onclick="openModal('user')">
+        <div class="landing-card-icon">🚀</div>
+        <h3>Enter Whiteboard</h3>
+        <p>Join the collaborative space with your access code.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-box">
+    <h2 id="modal-title">Enter Code</h2>
+    <p id="modal-desc">Enter your access code to continue.</p>
+    <div class="modal-code-input">
+      <input class="inp" id="modal-code-input" type="text" placeholder="ACCESS CODE" maxlength="20" style="letter-spacing:0.15em; text-transform:uppercase">
+      <div class="error-msg" id="modal-error">Incorrect code. Please try again.</div>
+      <button class="btn btn-primary" onclick="submitCode()">Enter →</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ADMIN SCREEN ==================== -->
+<div id="screen-admin" class="screen">
+  <div class="admin-sidebar">
+    <div class="admin-logo">Collab<span>Board</span></div>
+    <div class="admin-nav-item active" onclick="adminNav('config')" data-section="config">⚙️ Configuration</div>
+    <div class="admin-nav-item" onclick="adminNav('prompts')" data-section="prompts">📝 Prompts</div>
+    <div class="admin-nav-item" onclick="adminNav('codes')" data-section="codes">🔑 Access Codes</div>
+    <div class="admin-nav-item" onclick="adminNav('submissions')" data-section="submissions">📋 Submissions</div>
+    <div class="admin-nav-item" onclick="adminNav('whiteboard-admin')" data-section="whiteboard-admin">🖼️ Whiteboard</div>
+    <div style="flex:1"></div>
+    <div class="admin-nav-item" onclick="goHome()">← Back to Home</div>
+  </div>
+  <div class="admin-main">
+    <!-- CONFIG -->
+    <div class="admin-section active" id="admin-config">
+      <div class="section-title">Board Configuration</div>
+      <p class="section-sub">Set up your whiteboard grid layout.</p>
+      <div class="config-card">
+        <h3>Grid Dimensions</h3>
+        <div class="grid-control">
+          <label>Columns</label>
+          <div class="num-input">
+            <button class="num-btn" onclick="changeGrid('cols',-1)">−</button>
+            <div class="num-display" id="col-display">4</div>
+            <button class="num-btn" onclick="changeGrid('cols',1)">+</button>
+          </div>
+        </div>
+        <div class="grid-control">
+          <label>Rows</label>
+          <div class="num-input">
+            <button class="num-btn" onclick="changeGrid('rows',-1)">−</button>
+            <div class="num-display" id="row-display">3</div>
+            <button class="num-btn" onclick="changeGrid('rows',1)">+</button>
+          </div>
+        </div>
+        <div id="grid-preview" class="grid-preview"></div>
+      </div>
+      <div class="config-card">
+        <h3>Card Size</h3>
+        <div class="grid-control">
+          <label>Width (px)</label>
+          <div class="num-input">
+            <button class="num-btn" onclick="changeCard('w',-20)">−</button>
+            <div class="num-display" id="card-w-display">200</div>
+            <button class="num-btn" onclick="changeCard('w',20)">+</button>
+          </div>
+        </div>
+        <div class="grid-control">
+          <label>Height (px)</label>
+          <div class="num-input">
+            <button class="num-btn" onclick="changeCard('h',-20)">−</button>
+            <div class="num-display" id="card-h-display">180</div>
+            <button class="num-btn" onclick="changeCard('h',20)">+</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-cyan" onclick="saveConfig()">💾 Save Configuration</button>
+        <button class="btn btn-red" onclick="resetBoard()">🗑️ Reset Whiteboard</button>
+      </div>
+    </div>
+
+    <!-- PROMPTS -->
+    <div class="admin-section" id="admin-prompts">
+      <div class="section-title">Entry Prompts</div>
+      <p class="section-sub">Set questions users must answer before entering the whiteboard.</p>
+      <div class="config-card">
+        <h3>Prompts</h3>
+        <div id="prompts-list"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addPrompt()">+ Add Prompt</button>
+      </div>
+      <button class="btn btn-cyan" onclick="savePrompts()">💾 Save Prompts</button>
+    </div>
+
+    <!-- CODES -->
+    <div class="admin-section" id="admin-codes">
+      <div class="section-title">Access Codes</div>
+      <p class="section-sub">Share these codes with your participants.</p>
+      <div class="config-card">
+        <h3>Current Codes</h3>
+        <div class="codes-display">
+          <div class="code-chip">
+            <div id="admin-code-display">ADMIN2024</div>
+            <small>Admin Code</small>
+          </div>
+          <div class="code-chip" style="background: var(--cyan);">
+            <div id="user-code-display">BOARD2024</div>
+            <small>User Code</small>
+          </div>
+        </div>
+      </div>
+      <div class="config-card">
+        <h3>Change Codes</h3>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px;">
+            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:6px;">New Admin Code</label>
+            <input class="inp" id="new-admin-code" placeholder="e.g. MYADMIN">
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:6px;">New User Code</label>
+            <input class="inp" id="new-user-code" placeholder="e.g. MYBOARD">
+          </div>
+        </div>
+        <button class="btn btn-cyan" style="margin-top:12px;" onclick="saveCodes()">Update Codes</button>
+      </div>
+    </div>
+
+    <!-- SUBMISSIONS -->
+    <div class="admin-section" id="admin-submissions">
+      <div class="section-title">Submissions</div>
+      <p class="section-sub">View responses from participants.</p>
+      <div id="submissions-container" class="submissions-list">
+        <div style="color:var(--muted); text-align:center; padding:40px;">No submissions yet.</div>
+      </div>
+    </div>
+
+    <!-- WHITEBOARD ADMIN -->
+    <div class="admin-section" id="admin-whiteboard-admin">
+      <div class="section-title">Whiteboard Access</div>
+      <p class="section-sub">Open or manage the collaborative board.</p>
+      <div class="config-card">
+        <h3>Status</h3>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+          <span class="pulse-dot"></span>
+          <span style="font-size:0.9rem; color:var(--muted);">Board is <strong style="color:var(--olive)">active</strong></span>
+        </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="enterWhiteboardAsAdmin()">🖼️ Open Whiteboard</button>
+          <button class="btn btn-red" onclick="clearBoard()">🗑️ Clear All Cards</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PROMPT SCREEN ==================== -->
+<div id="screen-prompt" class="screen">
+  <div class="prompt-container fade-in">
+    <div class="prompt-header">
+      <div class="prompt-eyebrow">Welcome to the board</div>
+      <h1>Your voice matters here ✦</h1>
+      <p>Answer the prompts below — your responses will appear as your card on the shared board for everyone to see and build on.</p>
+    </div>
+    <div class="name-row">
+      <label class="name-label">
+        Your name <span class="req">*</span>
+        <span class="req-text">required — this appears on your card</span>
+      </label>
+      <input type="text" id="user-name-input" placeholder="e.g. Tami van der Berg" autocomplete="name" autofocus>
+      <div class="name-error-msg" id="name-error-msg">Please enter your name before continuing.</div>
+    </div>
+    <div id="prompt-questions"></div>
+    <div class="prompt-block">
+      <label>🔗 Share an image or link <span style="font-weight:400; color:var(--muted);">(optional)</span></label>
+      <div class="url-paste-block">
+        <p class="url-hint">Paste a URL to an image, a Google Doc, a website, or any publicly accessible link. It will appear on your card. Nothing is uploaded — the link is shared as-is.</p>
+        <div class="url-paste-row">
+          <input type="url" id="url-paste-input" placeholder="https://…" autocomplete="off">
+          <button class="url-add-btn" onclick="addSharedUrl()">Add</button>
+        </div>
+        <div class="url-list" id="url-list"></div>
+      </div>
+    </div>
+    <div class="prompt-submit">
+      <button class="btn-submit" onclick="submitPromptResponse()">
+        <span>Place my card on the board</span> <span style="font-size:1.1rem;">→</span>
+      </button>
+      <p style="margin-top:12px; font-size:0.75rem; color:var(--muted); text-align:center;">Your name and responses are visible to all participants.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== WHITEBOARD SCREEN ==================== -->
+<div id="screen-whiteboard" class="screen">
+  <div class="wb-topbar">
+    <div class="wb-brand">Collab<span>Board</span></div>
+    <div style="width:1px; height:24px; background:rgba(255,255,255,0.15);"></div>
+    <span id="wb-board-name" style="color:rgba(255,255,255,0.7); font-size:0.85rem;"></span>
+    <div class="wb-spacer"></div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="pulse-dot"></span>
+      <span style="color:rgba(255,255,255,0.6); font-size:0.8rem;" id="user-count-display">1 online</span>
+    </div>
+    <div class="wb-user-chip">
+      <div class="wb-avatar" id="wb-user-avatar"></div>
+      <span id="wb-user-name-display"></span>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="color:white; border-color:rgba(255,255,255,0.2);" onclick="goHome()">← Exit</button>
+  </div>
+
+  <div class="wb-body">
+    <!-- Left toolbar -->
+    <div class="wb-toolbar" id="wb-toolbar">
+      <button class="tool-btn active" id="tool-pan" onclick="setTool('pan')">
+        <span class="tool-icon">✋</span><span class="tool-label">Pan</span>
+        <span class="tooltip">Pan — drag to move</span>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="tool-text" onclick="toggleTextOptions()">
+        <span class="tool-icon" style="font-family:'DM Serif Display',serif;font-size:1.1rem;font-style:italic;">T</span>
+        <span class="tool-label">Text</span>
+        <span class="tooltip">Text — choose colours then click board</span>
+      </button>
+      <button class="tool-btn" id="tool-sticky" onclick="toggleStickyPicker()">
+        <span class="tool-icon">📌</span><span class="tool-label">Sticky</span>
+        <span class="tooltip">Sticky note — click a card</span>
+      </button>
+      <button class="tool-btn" id="tool-emoji" onclick="toggleEmojiPicker()">
+        <span class="tool-icon">😊</span><span class="tool-label">Emoji</span>
+        <span class="tooltip">Emoji — drag to a card's bottom zone</span>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="tool-upload" onclick="document.getElementById('wb-file-input').click()">
+        <span class="tool-icon">📎</span><span class="tool-label">Upload</span>
+        <span class="tooltip">Upload file or image to board</span>
+      </button>
+      <input type="file" id="wb-file-input" multiple style="display:none" onchange="uploadToBoard(event)">
+
+      <!-- Text options popup -->
+      <div class="text-options-popup" id="text-options">
+        <h4>Text Color</h4>
+        <div class="color-row" id="text-color-row"></div>
+        <h4>Highlight Color</h4>
+        <div class="color-row" id="highlight-color-row"></div>
+        <button class="btn btn-navy btn-sm" style="background:var(--navy); color:white; margin-top:8px;" onclick="placingText=true; closeAllPopups();">Click board to place →</button>
+      </div>
+
+      <!-- Emoji popup -->
+      <div class="emoji-popup" id="emoji-picker">
+        <h4>Education & Encouragement</h4>
+        <div class="emoji-grid" id="emoji-grid"></div>
+      </div>
+
+      <!-- Sticky popup -->
+      <div class="sticky-popup" id="sticky-picker">
+        <h4>Sticky Color</h4>
+        <div class="sticky-colors">
+          <div class="sticky-color-btn" style="background:var(--sticky-yellow);" onclick="selectedStickyColor='#FFF9C4'; placingSticky=true; closeAllPopups();"></div>
+          <div class="sticky-color-btn" style="background:var(--sticky-pink);" onclick="selectedStickyColor='#FCE4EC'; placingSticky=true; closeAllPopups();"></div>
+          <div class="sticky-color-btn" style="background:var(--sticky-blue);" onclick="selectedStickyColor='#E3F2FD'; placingSticky=true; closeAllPopups();"></div>
+          <div class="sticky-color-btn" style="background:var(--sticky-green);" onclick="selectedStickyColor='#F1F8E9'; placingSticky=true; closeAllPopups();"></div>
+        </div>
+        <p style="font-size:0.75rem; color:var(--muted); margin-top:10px;">Then click a card or the board</p>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="wb-canvas-wrap" id="canvas-wrap">
+      <div class="wb-canvas" id="wb-canvas">
+        <div class="wb-grid" id="wb-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zoom controls -->
+  <div class="wb-zoom-controls">
+    <button class="zoom-btn" onclick="zoom(-0.1)">−</button>
+    <div class="zoom-level" id="zoom-display">100%</div>
+    <button class="zoom-btn" onclick="zoom(0.1)">+</button>
+    <button class="zoom-btn" onclick="resetZoom()">⊙</button>
+  </div>
+</div>
+
+<!-- Comment Panel -->
+<div class="comment-panel" id="comment-panel">
+  <div class="comment-panel-header">
+    <div>
+      <h3>Comments</h3>
+      <div style="font-size:0.75rem; color:var(--muted);" id="comment-card-label">Select a card</div>
+    </div>
+    <button class="close-panel" onclick="closeCommentPanel()">✕</button>
+  </div>
+  <div class="comments-list" id="comments-list"></div>
+  <div class="comment-input-area">
+    <textarea id="comment-input" placeholder="Write a comment…"></textarea>
+    <button class="comment-submit" onclick="submitComment()">Post Comment</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Upload preview -->
+<div class="upload-preview" id="upload-preview">
+  <h4>📎 Uploaded to board</h4>
+  <div id="upload-preview-content"></div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const DEFAULT_ADMIN_CODE = 'ADMIN2024';
+const DEFAULT_USER_CODE  = 'BOARD2024';
+
+let state = {
+  adminCode: DEFAULT_ADMIN_CODE,
+  userCode: DEFAULT_USER_CODE,
+  gridCols: 4,
+  gridRows: 3,
+  cardWidth: 200,
+  cardHeight: 180,
+  prompts: ['What is one idea you are bringing into today\'s session?', 'What do you hope to learn or share?'],
+  cards: [],      // board cards
+  texts: [],      // board text elements
+  emojis: [],     // board floating emojis
+  stickies: [],   // board stickies
+  comments: {},   // { cardId: [ { author, text, time } ] }
+  submissions: [] // raw prompt submissions
+};
+
+let currentUser = { name: '', isAdmin: false };
+let modalMode = '';
+let selectedTool = 'pan';
+let selectedTextColor = '#223343';
+let selectedHighlightColor = 'transparent';
+let selectedStickyColor = '#FFF9C4';
+let selectedEmojiToPlace = '';
+let placingText = false;
+let placingSticky = false;
+let placingEmoji = false;
+let selectedCardId = null;
+let sharedUrls = [];  // { url, label, isImage }
+let wbScale = 1;
+let wbOffsetX = 0, wbOffsetY = 0;
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let dragEl = null, dragOffX = 0, dragOffY = 0;
+let dragCardId = null;
+let snapPreviewCell = null;
+const CELL_GAP = 16;
+const CELL_PAD = 10;
+const STICKY_GUTTER = 70; // right-side gutter for sticky tabs inside each cell
+
+// BroadcastChannel — same-tab fallback when Supabase is unavailable
+const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('collabboard') : null;
+
+// ============================================================
+// SUPABASE REALTIME — multi-device sync
+// ============================================================
+const SUPABASE_URL = 'https://rubcqbhxotmwoawgwlpz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pe0AG4w9ZKMsEZqKCZn49g_7m5GQ7BY';
+
+let supabase = null;
+let realtimeChannel = null;
+let isSaving = false;       // debounce guard
+let saveQueued = false;     // coalesce rapid saves
+let supabaseReady = false;
+
+async function initSupabase() {
+  try {
+    // Load Supabase client from CDN
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Load initial state from Supabase
+    const { data, error } = await supabase
+      .from('board_state')
+      .select('state')
+      .eq('id', 'main')
+      .single();
+
+    if (error) {
+      console.warn('Supabase load error:', error.message);
+    } else if (data && data.state && Object.keys(data.state).length > 0) {
+      // Merge remote state — remote wins for board content, keep local codes
+      const remote = data.state;
+      const adminCode = state.adminCode;
+      const userCode  = state.userCode;
+      Object.assign(state, remote);
+      // Preserve local auth codes so admin can still log in
+      if (!remote.adminCode) state.adminCode = adminCode;
+      if (!remote.userCode)  state.userCode  = userCode;
+    }
+
+    // Subscribe to realtime changes on board_state
+    realtimeChannel = supabase
+      .channel('board_state_changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'board_state',
+        filter: 'id=eq.main'
+      }, (payload) => {
+        if (!payload.new || !payload.new.state) return;
+        const incoming = payload.new.state;
+        Object.assign(state, incoming);
+        const wbActive    = document.getElementById('screen-whiteboard').classList.contains('active');
+        const adminActive = document.getElementById('screen-admin').classList.contains('active');
+        if (wbActive && canvasEventsReady) renderBoard();
+        if (adminActive) refreshAdminViews();
+        updatePresenceDot(true);
+      })
+      .subscribe((status) => {
+        supabaseReady = (status === 'SUBSCRIBED');
+        updatePresenceDot(supabaseReady);
+        if (supabaseReady) showToast('🟢 Connected to live board');
+      });
+
+  } catch (err) {
+    console.warn('Supabase unavailable, falling back to local sync:', err.message);
+  }
+}
+
+function updatePresenceDot(connected) {
+  const dot = document.querySelector('.pulse-dot');
+  if (!dot) return;
+  dot.style.background = connected ? '#9EA700' : '#CA433C';
+  dot.title = connected ? 'Live — all participants synced' : 'Local only — changes not shared across devices';
+}
+
+// ============================================================
+// PERSISTENCE & SYNC
+// ============================================================
+
+// ============================================================
+// FILE STORE — IndexedDB (survives re-renders, works on GitHub Pages)
+// Falls back to in-memory if IndexedDB unavailable
+// ============================================================
+const fileStore = {}; // in-memory cache: fileKey -> { name, type, url }
+
+let idb = null;
+function openIDB() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) { res(null); return; }
+    const req = indexedDB.open('collabboard_files', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('files');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => res(null);
+  });
+}
+
+async function idbPut(key, blob) {
+  if (!idb) return;
+  return new Promise(res => {
+    const tx = idb.transaction('files', 'readwrite');
+    tx.objectStore('files').put(blob, key);
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+
+async function idbGet(key) {
+  if (!idb) return null;
+  return new Promise(res => {
+    const tx = idb.transaction('files', 'readonly');
+    const req = tx.objectStore('files').get(key);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror = () => res(null);
+  });
+}
+
+async function storeFile(key, file) {
+  const url = URL.createObjectURL(file);
+  fileStore[key] = { name: file.name, type: file.type, url };
+  await idbPut(key, file); // persist the Blob itself
+  return url;
+}
+
+async function getFileUrl(key, fallbackData) {
+  if (fileStore[key]) return fileStore[key].url;
+  const blob = await idbGet(key);
+  if (blob) {
+    const url = URL.createObjectURL(blob);
+    fileStore[key] = { url };
+    return url;
+  }
+  return fallbackData || null; // last resort: old base64 if any
+}
+
+// Initialise IDB on load
+openIDB().then(db => { idb = db; });
+
+function fileId(cardId, idx) { return `${cardId}_f${idx}`; }
+
+async function registerFiles(card) {
+  for (let i = 0; i < (card.files || []).length; i++) {
+    const f = card.files[i];
+    const key = fileId(card.id, i);
+    if (fileStore[key]) continue;
+    if (f.tempKey && fileStore[f.tempKey]) {
+      // Re-key from temp to permanent
+      fileStore[key] = fileStore[f.tempKey];
+      const blob = await idbGet(f.tempKey);
+      if (blob) await idbPut(key, blob);
+    } else if (f.data) {
+      fileStore[key] = { name: f.name, type: f.type, url: f.data };
+    }
+  }
+}
+
+function stateForStorage() {
+  // Strip file blobs — only metadata persisted
+  const s = JSON.parse(JSON.stringify(state));
+  s.cards = s.cards.map(card => ({
+    ...card,
+    files: (card.files || []).map(f => ({ name: f.name, type: f.type, data: null }))
+  }));
+  return s;
+}
+
+async function pushToSupabase(payload) {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('board_state')
+      .update({ state: payload, updated_at: new Date().toISOString() })
+      .eq('id', 'main');
+    if (error) console.warn('Supabase push error:', error.message);
+  } catch (e) {
+    console.warn('Supabase push failed:', e.message);
+  }
+}
+
+function saveState() {
+  const payload = stateForStorage();
+
+  // 1. localStorage (instant, local)
+  try { localStorage.setItem('cb_state', JSON.stringify(payload)); } catch(e) {}
+
+  // 2. BroadcastChannel (instant, same-browser tabs)
+  if (bc) {
+    try { bc.postMessage({ type: 'state_update', state: payload }); } catch(e) {}
+  }
+
+  // 3. Supabase (cross-device) — debounced so rapid changes coalesce into one write
+  if (supabase) {
+    if (isSaving) {
+      saveQueued = true;
+      return;
+    }
+    isSaving = true;
+    pushToSupabase(payload).finally(() => {
+      isSaving = false;
+      if (saveQueued) {
+        saveQueued = false;
+        saveState(); // flush the queued save
+      }
+    });
+  }
+}
+
+function loadState() {
+  // Load from localStorage as instant starting point;
+  // Supabase will overwrite with remote state once connected
+  const s = localStorage.getItem('cb_state');
+  if (s) {
+    try { const loaded = JSON.parse(s); Object.assign(state, loaded); } catch(e) {}
+  }
+}
+
+function broadcastAndSave() { saveState(); }
+
+if (bc) {
+  bc.onmessage = (e) => {
+    if (e.data.type === 'state_update') {
+      Object.assign(state, e.data.state);
+      const wbActive    = document.getElementById('screen-whiteboard').classList.contains('active');
+      const adminActive = document.getElementById('screen-admin').classList.contains('active');
+      if (wbActive && canvasEventsReady) renderBoard();
+      if (adminActive) refreshAdminViews();
+    }
+  };
+}
+
+loadState();      // instant local restore
+initSupabase();   // async: connects, loads remote state, subscribes to realtime
+
+// ============================================================
+// MODAL / LANDING
+// ============================================================
+function openModal(mode) {
+  modalMode = mode;
+  document.getElementById('modal-title').textContent = mode === 'admin' ? 'Admin Access' : 'Enter Whiteboard';
+  document.getElementById('modal-desc').textContent = mode === 'admin'
+    ? 'Enter the administrator code.'
+    : 'Enter the access code provided by your facilitator.';
+  document.getElementById('modal-code-input').value = '';
+  document.getElementById('modal-error').classList.remove('show');
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-code-input').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.getElementById('modal-code-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitCode();
+});
+
+function submitCode() {
+  const inp = document.getElementById('modal-code-input');
+  const val = inp.value.trim().toUpperCase();
+  if (modalMode === 'admin') {
+    if (val === state.adminCode.toUpperCase()) {
+      closeModal(); showScreen('admin'); currentUser.isAdmin = true;
+      refreshAdminViews();
+    } else {
+      inp.classList.add('error'); document.getElementById('modal-error').classList.add('show');
+      setTimeout(() => inp.classList.remove('error'), 500);
+    }
+  } else {
+    if (val === state.userCode.toUpperCase()) {
+      closeModal();
+      // Always show the entry screen so name is always collected
+      showScreen('prompt'); renderPrompts();
+    } else {
+      inp.classList.add('error'); document.getElementById('modal-error').classList.add('show');
+      setTimeout(() => inp.classList.remove('error'), 500);
+    }
+  }
+}
+
+function goHome() { showScreen('landing'); }
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function adminNav(section) {
+  document.querySelectorAll('.admin-nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.admin-nav-item[data-section="${section}"]`).classList.add('active');
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('admin-' + section).classList.add('active');
+  if (section === 'submissions') renderSubmissions();
+  if (section === 'prompts') renderAdminPrompts();
+}
+
+function changeGrid(dim, delta) {
+  if (dim === 'cols') { state.gridCols = Math.max(1, Math.min(12, state.gridCols + delta)); document.getElementById('col-display').textContent = state.gridCols; }
+  else { state.gridRows = Math.max(1, Math.min(12, state.gridRows + delta)); document.getElementById('row-display').textContent = state.gridRows; }
+  renderGridPreview();
+}
+
+function changeCard(dim, delta) {
+  if (dim === 'w') { state.cardWidth = Math.max(120, Math.min(400, state.cardWidth + delta)); document.getElementById('card-w-display').textContent = state.cardWidth; }
+  else { state.cardHeight = Math.max(100, Math.min(400, state.cardHeight + delta)); document.getElementById('card-h-display').textContent = state.cardHeight; }
+}
+
+function renderGridPreview() {
+  const p = document.getElementById('grid-preview');
+  p.style.gridTemplateColumns = `repeat(${state.gridCols}, 1fr)`;
+  p.style.gridTemplateRows = `repeat(${state.gridRows}, 1fr)`;
+  p.innerHTML = '';
+  for (let i = 0; i < state.gridCols * state.gridRows; i++) {
+    const c = document.createElement('div'); c.className = 'grid-preview-cell'; p.appendChild(c);
+  }
+}
+
+function saveConfig() {
+  broadcastAndSave(); showToast('✅ Configuration saved!');
+  refreshAdminViews();
+}
+
+function resetBoard() {
+  if (!confirm('Reset the entire whiteboard? This will remove all cards, texts, and notes.')) return;
+  state.cards = []; state.texts = []; state.emojis = []; state.stickies = []; state.comments = {};
+  broadcastAndSave(); showToast('🗑️ Whiteboard reset.');
+}
+
+function clearBoard() {
+  if (!confirm('Clear all cards from the board?')) return;
+  state.cards = []; state.comments = {};
+  broadcastAndSave(); showToast('🗑️ Board cleared.');
+}
+
+function renderAdminPrompts() {
+  const list = document.getElementById('prompts-list');
+  list.innerHTML = '';
+  state.prompts.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'prompt-row';
+    row.innerHTML = `
+      <textarea placeholder="Enter prompt question…">${p}</textarea>
+      <button class="btn btn-ghost btn-sm" onclick="removePrompt(${i})">✕</button>
+    `;
+    row.querySelector('textarea').oninput = (e) => { state.prompts[i] = e.target.value; };
+    list.appendChild(row);
+  });
+}
+
+function addPrompt() {
+  state.prompts.push(''); renderAdminPrompts();
+}
+
+function removePrompt(i) {
+  state.prompts.splice(i, 1); renderAdminPrompts();
+}
+
+function savePrompts() {
+  broadcastAndSave(); showToast('✅ Prompts saved!');
+}
+
+function saveCodes() {
+  const ac = document.getElementById('new-admin-code').value.trim().toUpperCase();
+  const uc = document.getElementById('new-user-code').value.trim().toUpperCase();
+  if (ac) { state.adminCode = ac; document.getElementById('admin-code-display').textContent = ac; }
+  if (uc) { state.userCode = uc; document.getElementById('user-code-display').textContent = uc; }
+  broadcastAndSave(); showToast('✅ Codes updated!');
+}
+
+function renderSubmissions() {
+  const c = document.getElementById('submissions-container');
+  if (!state.submissions || state.submissions.length === 0) {
+    c.innerHTML = '<div style="color:var(--muted); text-align:center; padding:40px;">No submissions yet.</div>'; return;
+  }
+  c.innerHTML = '';
+  state.submissions.forEach(s => {
+    const div = document.createElement('div'); div.className = 'submission-item fade-in';
+    div.innerHTML = `
+      <div class="submission-avatar">${s.name ? s.name[0].toUpperCase() : '?'}</div>
+      <div style="flex:1">
+        <div style="font-weight:600; font-size:0.9rem;">${s.name}</div>
+        <div style="font-size:0.8rem; color:var(--muted);">${s.answers ? s.answers.join(' | ').substring(0, 80) + '...' : ''}</div>
+      </div>
+      <div style="font-size:0.75rem; color:var(--muted);">${s.time || ''}</div>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function refreshAdminViews() {
+  document.getElementById('col-display').textContent = state.gridCols;
+  document.getElementById('row-display').textContent = state.gridRows;
+  document.getElementById('card-w-display').textContent = state.cardWidth;
+  document.getElementById('card-h-display').textContent = state.cardHeight;
+  document.getElementById('admin-code-display').textContent = state.adminCode;
+  document.getElementById('user-code-display').textContent = state.userCode;
+  renderGridPreview();
+  renderAdminPrompts();
+}
+
+function enterWhiteboardAsAdmin() {
+  currentUser = { name: 'Admin', isAdmin: true };
+  showScreen('whiteboard'); initWhiteboard();
+}
+
+// ============================================================
+// PROMPT SCREEN
+// ============================================================
+function renderPrompts() {
+  const c = document.getElementById('prompt-questions');
+  c.innerHTML = '';
+  state.prompts.forEach((p, i) => {
+    const block = document.createElement('div');
+    block.className = 'prompt-block';
+    block.innerHTML = `
+      <label>${i + 1}. ${p}</label>
+      <textarea id="answer-${i}" placeholder="Your response…"></textarea>
+    `;
+    c.appendChild(block);
+  });
+  sharedUrls = [];
+  document.getElementById('url-list').innerHTML = '';
+}
+
+// ── URL sharing (prompt screen) ──────────────────────────────
+function addSharedUrl() {
+  const inp = document.getElementById('url-paste-input');
+  const raw = inp.value.trim();
+  if (!raw) return;
+
+  // Basic URL validation
+  let url;
+  try { url = new URL(raw); } catch {
+    inp.classList.add('url-error');
+    setTimeout(() => inp.classList.remove('url-error'), 500);
+    showToast('⚠️ Please paste a valid URL starting with https://');
+    return;
+  }
+
+  // Detect if it looks like an image
+  const imageExts = /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i;
+  const isImage = imageExts.test(url.pathname) || url.hostname.includes('imgur') || url.hostname.includes('unsplash') || url.hostname.includes('cloudinary');
+
+  // Derive a short label
+  const label = decodeURIComponent(url.hostname + (url.pathname.length > 1 ? url.pathname.split('/').pop() || url.pathname : ''));
+
+  sharedUrls.push({ url: url.href, label, isImage });
+  inp.value = '';
+  renderUrlList();
+}
+
+function renderUrlList() {
+  const list = document.getElementById('url-list');
+  list.innerHTML = '';
+  sharedUrls.forEach((item, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'url-chip';
+    const badge = item.isImage ? 'Image' : 'Link';
+    const preview = item.isImage
+      ? `<img class="url-preview-img" src="${item.url}" alt="" onerror="this.style.display='none'">`
+      : `<span style="font-size:1.2rem;">🔗</span>`;
+    chip.innerHTML = `
+      ${preview}
+      <span class="url-text" title="${item.url}">${item.label}</span>
+      <span class="url-type-badge">${badge}</span>
+      <button onclick="removeUrl(${i})" title="Remove">✕</button>
+    `;
+    list.appendChild(chip);
+  });
+}
+
+function removeUrl(i) { sharedUrls.splice(i, 1); renderUrlList(); }
+
+// Allow pressing Enter in the URL input to add
+document.addEventListener('DOMContentLoaded', () => {
+  const urlInput = document.getElementById('url-paste-input');
+  if (urlInput) urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSharedUrl(); } });
+});
+
+function submitPromptResponse() {
+  const name = document.getElementById('user-name-input').value.trim();
+  if (!name) {
+    const inp = document.getElementById('user-name-input');
+    inp.classList.add('name-error');
+    document.getElementById('name-error-msg').classList.add('show');
+    inp.focus();
+    setTimeout(() => inp.classList.remove('name-error'), 600);
+    return;
+  }
+  document.getElementById('name-error-msg').classList.remove('show');
+
+  const answers = state.prompts.map((_, i) => {
+    const el = document.getElementById(`answer-${i}`);
+    return el ? el.value.trim() : '';
+  });
+
+  currentUser = { name, isAdmin: false };
+
+  // Create a card
+  const card = {
+    id: 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+    author: name,
+    answers,
+    files: [],           // no uploads — kept for board-drop uploads later
+    sharedUrls: sharedUrls.slice(),
+    gridCol: -1, gridRow: -1,
+    x: 80, y: 80,
+    color: randomCardColor(),
+    emojis: []
+  };
+
+  // Auto-assign to first free cell
+  card.gridCol = -1; card.gridRow = -1;
+  outer: for (let r = 0; r < state.gridRows; r++) {
+    for (let c = 0; c < state.gridCols; c++) {
+      const occupied = state.cards.some(card2 => card2.gridCol === c && card2.gridRow === r);
+      if (!occupied) { card.gridCol = c; card.gridRow = r; break outer; }
+    }
+  }
+
+  if (!state.submissions) state.submissions = [];
+  state.submissions.push({ name, answers, time: new Date().toLocaleTimeString(), urls: sharedUrls.length });
+
+  state.cards.push(card);
+  broadcastAndSave();
+
+  showScreen('whiteboard');
+  initWhiteboard();
+}
+
+function randomCardColor() {
+  // 12 soft, humanistic tones — each participant gets a distinct personal colour
+  const colors = [
+    '#5C7A6B', // sage green
+    '#8B6F5E', // warm terracotta
+    '#5E7A8B', // slate blue
+    '#7A6B8B', // dusty lavender
+    '#8B7A5E', // warm caramel
+    '#5E8B7A', // teal moss
+    '#8B5E6F', // dusty rose
+    '#6B7A5E', // olive sage
+    '#5E6B8B', // steel blue
+    '#8B8B5E', // warm khaki
+    '#7A5E8B', // muted plum
+    '#5E8B8B', // deep aqua
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// ============================================================
+// WHITEBOARD
+// ============================================================
+const EDU_EMOJIS = ['⭐','🌟','💡','📚','🎓','✅','🏆','💪','🔥','🎯','🌈','🤔','💬','🙌','👏','❤️','🧠','🔍','💎','🚀','✨','🎉','📝','🌱','🦋','🎨','🔑','💫','🙏','😊'];
+const TEXT_COLORS = ['#223343','#CA433C','#00B2CD','#9EA700','#FFBA00','#ffffff','#333333','#6b7f8a'];
+const HIGHLIGHT_COLORS = ['transparent','#FFF9C4','#FCE4EC','#E3F2FD','#F1F8E9','rgba(255,186,0,0.3)','rgba(0,178,205,0.2)'];
+
+function initWhiteboard() {
+  document.getElementById('wb-user-name-display').textContent = currentUser.name;
+  document.getElementById('wb-board-name').textContent = `${state.gridCols}×${state.gridRows} grid`;
+  const av = document.getElementById('wb-user-avatar');
+  av.textContent = currentUser.name ? currentUser.name[0].toUpperCase() : '?';
+
+  buildGrid();
+  buildEmojiPicker();
+  buildColorPickers();
+  renderBoard();
+  setupCanvasEvents();
+}
+
+function buildGrid() {
+  const grid = document.getElementById('wb-grid');
+  // Each cell = card content width + sticky gutter + padding on both sides
+  const cellW = state.cardWidth + STICKY_GUTTER + CELL_GAP;
+  const cellH = state.cardHeight + CELL_GAP;
+  const totalW = state.gridCols * cellW + CELL_GAP;
+  const totalH = state.gridRows * cellH + CELL_GAP;
+  grid.style.width = totalW + 'px';
+  grid.style.height = totalH + 'px';
+  grid.style.gridTemplateColumns = `repeat(${state.gridCols}, ${cellW - CELL_GAP}px)`;
+  grid.style.gridTemplateRows = `repeat(${state.gridRows}, ${cellH - CELL_GAP}px)`;
+  grid.style.gap = CELL_GAP + 'px';
+  grid.style.padding = CELL_GAP + 'px';
+  grid.innerHTML = '';
+  for (let r = 0; r < state.gridRows; r++) {
+    for (let c = 0; c < state.gridCols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.dataset.col = c; cell.dataset.row = r;
+      grid.appendChild(cell);
+    }
+  }
+
+  const canvas = document.getElementById('wb-canvas');
+  canvas.style.width = (totalW + 200) + 'px';
+  canvas.style.height = (totalH + 200) + 'px';
+}
+
+function cellPos(col, row) {
+  const cellW = state.cardWidth + STICKY_GUTTER + CELL_GAP;
+  const cellH = state.cardHeight + CELL_GAP;
+  return {
+    x: col * cellW + CELL_GAP + CELL_PAD,
+    y: row * cellH + CELL_GAP + CELL_PAD
+  };
+}
+
+function buildEmojiPicker() {
+  const grid = document.getElementById('emoji-grid');
+  grid.innerHTML = '';
+  EDU_EMOJIS.forEach(e => {
+    const div = document.createElement('div'); div.className = 'emoji-item'; div.textContent = e;
+    div.onclick = () => { selectedEmojiToPlace = e; placingEmoji = true; closeAllPopups(); showToast('Click the board or a card to place ' + e); };
+    grid.appendChild(div);
+  });
+}
+
+function buildColorPickers() {
+  const tc = document.getElementById('text-color-row');
+  const hc = document.getElementById('highlight-color-row');
+  tc.innerHTML = ''; hc.innerHTML = '';
+
+  TEXT_COLORS.forEach(col => {
+    const s = document.createElement('div');
+    s.className = 'color-swatch' + (col === selectedTextColor ? ' selected' : '');
+    s.style.background = col;
+    s.style.border = col === 'transparent' ? '2px dashed #ccc' : '';
+    if (col === '#ffffff') s.style.border = '2px solid #ddd';
+    s.onclick = () => {
+      selectedTextColor = col;
+      tc.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('selected'));
+      s.classList.add('selected');
+    };
+    tc.appendChild(s);
+  });
+
+  HIGHLIGHT_COLORS.forEach(col => {
+    const s = document.createElement('div');
+    s.className = 'color-swatch' + (col === selectedHighlightColor ? ' selected' : '');
+    s.style.background = col === 'transparent' ? 'white' : col;
+    s.style.border = col === 'transparent' ? '2px dashed #ccc' : '';
+    s.onclick = () => {
+      selectedHighlightColor = col;
+      hc.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('selected'));
+      s.classList.add('selected');
+    };
+    hc.appendChild(s);
+  });
+}
+
+function renderBoard() {
+  // Remove old cards, texts, emojis, stickies (keep grid)
+  document.querySelectorAll('.board-card, .board-text, .board-emoji, .board-sticky').forEach(el => el.remove());
+
+  // Update grid cell occupied state
+  document.querySelectorAll('.grid-cell').forEach(cell => {
+    const c = parseInt(cell.dataset.col), r = parseInt(cell.dataset.row);
+    const occ = state.cards.some(card => card.gridCol === c && card.gridRow === r);
+    cell.classList.toggle('occupied', occ);
+  });
+
+  // Render cards
+  state.cards.forEach(card => renderCard(card));
+  // Render texts
+  state.texts.forEach(t => renderTextEl(t));
+  // Render emojis
+  state.emojis.forEach(e => renderEmojiEl(e));
+  // Render stickies
+  state.stickies.forEach(s => renderStickyEl(s));
+
+  document.getElementById('user-count-display').textContent = (state.submissions ? state.submissions.length + 1 : 1) + ' online';
+}
+
+function renderCard(card) {
+  const canvas = document.getElementById('wb-canvas');
+  const div = document.createElement('div');
+  div.className = 'board-card';
+  div.id = 'card-' + card.id;
+  div.dataset.cardId = card.id;
+
+  const cardW = state.cardWidth - CELL_PAD * 2;
+  const cardH = state.cardHeight - CELL_PAD * 2;
+
+  // Card is left-snapped; sticky gutter is to its right
+  if (card.gridCol >= 0 && card.gridRow >= 0) {
+    const pos = cellPos(card.gridCol, card.gridRow);
+    div.style.left = pos.x + 'px';
+    div.style.top  = pos.y + 'px';
+  } else {
+    div.style.left = (card.x || 100) + 'px';
+    div.style.top  = (card.y || 100) + 'px';
+  }
+  div.style.width  = cardW + 'px';
+  div.style.height = cardH + 'px';
+
+  const answersHtml = (card.answers || []).map((a) =>
+    a ? `<div class="card-answer" style="border-color:${card.color}55;">${a.substring(0,140)}${a.length>140?'…':''}</div>` : ''
+  ).join('');
+
+  const emojisHtml = (card.emojis || []).map(e => `<span class="card-emoji">${e}</span>`).join('');
+
+  const initial = card.author ? card.author.trim()[0].toUpperCase() : '?';
+  const commentCount = (state.comments[card.id] || []).length;
+  const countBadge = commentCount > 0
+    ? `<span class="card-comment-count has-comments">${commentCount}</span>`
+    : `<span class="card-comment-count"></span>`;
+
+  const isOwner = currentUser.name === card.author || currentUser.isAdmin;
+  const deleteBtnHtml = isOwner
+    ? `<button class="card-delete-btn" title="Remove card" onclick="deleteCard(event,'${card.id}')">✕</button>`
+    : '';
+
+  // Build the card HTML first — ALL querySelector calls must come AFTER this
+  div.innerHTML = `
+    <div class="card-header" style="background:${card.color};">
+      <div class="card-avatar">${initial}</div>
+      <div class="card-author">${card.author}</div>
+      <button class="card-btn" onclick="openCommentPanel('${card.id}')">💬 ${countBadge}</button>
+      ${deleteBtnHtml}
+    </div>
+    <div class="card-body">${answersHtml}</div>
+    <div class="card-attachments"></div>
+    <div class="card-emoji-zone" id="emoji-zone-${card.id}">${emojisHtml}</div>
+    <div class="sticky-gutter" id="sticky-gutter-${card.id}"></div>
+  `;
+
+  // Show delete button (always render it so admin can see all)
+  const delBtn = div.querySelector('.card-delete-btn');
+  if (delBtn) delBtn.style.display = 'flex';
+
+  // ── Shared URLs (from prompt entry) — safe to query now ──
+  const attachZone = div.querySelector('.card-attachments');
+
+  const urlsHtml = (card.sharedUrls || []).map(item => {
+    if (item.isImage) {
+      // Wrap image in an anchor so keyboard Enter works
+      return `<a class="card-attach-link" href="${item.url}" target="_blank" rel="noopener noreferrer" tabindex="0" title="Open ${item.label}"><img class="card-attach-thumb" src="${item.url}" alt="${item.label}" onerror="this.style.display='none'"></a>`;
+    }
+    return `<a class="card-attach-file" href="${item.url}" target="_blank" rel="noopener noreferrer" tabindex="0" title="${item.url}">🔗 ${item.label}</a>`;
+  }).join('');
+  if (urlsHtml) attachZone.innerHTML = urlsHtml;
+
+  // ── Board-dropped files (async from IDB) ──
+  (async () => {
+    const fileParts = await Promise.all((card.files || []).map(async (f, i) => {
+      const url = await getFileUrl(fileId(card.id, i), f.data);
+      if (!url) return `<span class="card-attach-file" title="${f.name}">📎 ${f.name} <span style="opacity:.4">(session ended)</span></span>`;
+      if (f.type && f.type.startsWith('image/')) {
+        return `<a class="card-attach-link" href="${url}" target="_blank" rel="noopener noreferrer" tabindex="0" title="Open ${f.name}"><img class="card-attach-thumb" src="${url}" alt="${f.name}"></a>`;
+      }
+      return `<a class="card-attach-file" href="${url}" target="_blank" rel="noopener noreferrer" tabindex="0" title="${f.name}">📎 ${f.name}</a>`;
+    }));
+    if (fileParts.length) attachZone.innerHTML += fileParts.join('');
+  })();
+
+  // ── Build sticky tabs in the right gutter ──
+  const cardStickies = state.stickies.filter(s => s.cardId === card.id);
+  const gutter = div.querySelector('.sticky-gutter');
+  cardStickies.forEach((s, idx) => {
+    const tab = document.createElement('div');
+    tab.className = 'sticky-tab collapsed';
+    tab.style.background = s.color || '#FFF9C4';
+    tab.innerHTML = `<span class="tab-preview">${s.text || '(empty)'}</span>`;
+    tab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleStickyTab(tab, s, card.id);
+    });
+    gutter.appendChild(tab);
+  });
+
+  // Add-sticky button at bottom of gutter
+  const addBtn = document.createElement('button');
+  addBtn.className = 'sticky-add-btn';
+  addBtn.innerHTML = '＋';
+  addBtn.title = 'Add sticky note';
+  addBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openStickyInputForCard(card.id, gutter);
+  });
+  gutter.appendChild(addBtn);
+
+  setupCardDrag(div, card);
+  canvas.appendChild(div);
+
+  // Emoji drop onto card
+  div.addEventListener('click', (e) => {
+    if (placingEmoji && selectedEmojiToPlace) {
+      if (!card.emojis) card.emojis = [];
+      card.emojis.push(selectedEmojiToPlace);
+      placingEmoji = false; selectedEmojiToPlace = '';
+      broadcastAndSave(); renderBoard();
+    }
+  });
+}
+
+function toggleStickyTab(tab, s, cardId) {
+  const isExpanded = tab.classList.contains('expanded');
+  // Collapse all tabs in this gutter first
+  tab.closest('.sticky-gutter').querySelectorAll('.sticky-tab').forEach(t => {
+    t.classList.remove('expanded');
+    t.classList.add('collapsed');
+    t.innerHTML = `<span class="tab-preview">${t._stickyData ? t._stickyData.text : ''}</span>`;
+  });
+  if (!isExpanded) {
+    tab.classList.remove('collapsed');
+    tab.classList.add('expanded');
+    tab.innerHTML = `
+      <div class="tab-text">${s.text || '(empty)'}</div>
+      <div class="tab-actions">
+        <button class="tab-btn" onclick="editStickyTab(event,'${s.id}')">✏️</button>
+        <button class="tab-btn" onclick="deleteStickyTab(event,'${s.id}','${cardId}')">✕</button>
+      </div>`;
+  }
+  tab._stickyData = s;
+}
+
+function editStickyTab(e, stickyId) {
+  e.stopPropagation();
+  const s = state.stickies.find(st => st.id === stickyId);
+  if (!s) return;
+  const newText = prompt('Edit sticky note:', s.text || '');
+  if (newText === null) return;
+  s.text = newText;
+  broadcastAndSave(); renderBoard();
+}
+
+function deleteStickyTab(e, stickyId, cardId) {
+  e.stopPropagation();
+  state.stickies = state.stickies.filter(st => st.id !== stickyId);
+  broadcastAndSave(); renderBoard();
+}
+
+function openStickyInputForCard(cardId, gutter) {
+  // Inline mini-input inside the gutter
+  const existing = gutter.querySelector('.sticky-inline-input');
+  if (existing) { existing.remove(); return; }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sticky-inline-input';
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+  const colorRow = document.createElement('div');
+  colorRow.style.cssText = 'display:flex;gap:3px;';
+  const stickyColors = ['#FFF9C4','#FCE4EC','#E3F2FD','#F1F8E9'];
+  let chosenColor = stickyColors[0];
+  stickyColors.forEach(col => {
+    const sw = document.createElement('div');
+    sw.style.cssText = `width:12px;height:12px;border-radius:50%;background:${col};cursor:pointer;border:1.5px solid rgba(0,0,0,0.15);`;
+    sw.onclick = () => { chosenColor = col; colorRow.querySelectorAll('div').forEach(d => d.style.outline='none'); sw.style.outline='2px solid #223343'; };
+    colorRow.appendChild(sw);
+  });
+
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'Note…';
+  ta.style.cssText = 'width:50px;height:50px;font-size:0.65rem;border:1px solid rgba(0,0,0,0.15);border-radius:4px;padding:3px;resize:none;font-family:DM Sans,sans-serif;';
+  ta.addEventListener('pointerdown', e => e.stopPropagation());
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveInlineSticky(); }
+    if (e.key === 'Escape') wrap.remove();
+    e.stopPropagation();
+  });
+
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Add';
+  saveBtn.style.cssText = 'font-size:0.6rem;padding:2px;border:none;background:var(--navy);color:white;border-radius:3px;cursor:pointer;';
+
+  function saveInlineSticky() {
+    const text = ta.value.trim();
+    if (!text) { wrap.remove(); return; }
+    state.stickies.push({ id: 'sticky_' + Date.now(), cardId, color: chosenColor, text, x: 0, y: 0 });
+    broadcastAndSave(); renderBoard();
+  }
+
+  saveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveInlineSticky(); });
+  wrap.appendChild(colorRow);
+  wrap.appendChild(ta);
+  wrap.appendChild(saveBtn);
+
+  // Insert before the add button
+  gutter.insertBefore(wrap, gutter.lastElementChild);
+  ta.focus();
+}
+
+function deleteCard(e, cardId) {
+  e.stopPropagation();
+  if (!confirm('Remove this card from the board?')) return;
+  state.cards = state.cards.filter(c => c.id !== cardId);
+  // Remove associated stickies and comments
+  state.stickies = state.stickies.filter(s => s.cardId !== cardId);
+  delete state.comments[cardId];
+  if (selectedCardId === cardId) closeCommentPanel();
+  broadcastAndSave(); renderBoard();
+}
+
+function cycleStickyStack(cardId) {
+  const cardStickies = state.stickies.filter(s => s.cardId === cardId);
+  if (cardStickies.length < 2) return;
+  const first = cardStickies[0];
+  state.stickies = state.stickies.filter(s => !(s.cardId === cardId));
+  cardStickies.push(cardStickies.shift()); // rotate
+  state.stickies.push(...cardStickies);
+  broadcastAndSave(); renderBoard();
+}
+
+function renderTextEl(t) {
+  const canvas = document.getElementById('wb-canvas');
+  const div = document.createElement('div');
+  div.className = 'board-text';
+  div.style.left = t.x + 'px';
+  div.style.top = t.y + 'px';
+  div.style.color = t.color || '#223343';
+  div.style.backgroundColor = t.highlight || 'transparent';
+  div.dataset.id = t.id;
+  div.innerHTML = (t.text || 'Text') + '<span class="edit-hint">double-click to edit</span>';
+
+  // Delete button — appears on hover
+  const delBtn = document.createElement('button');
+  delBtn.className = 'delete-btn';
+  delBtn.title = 'Remove text';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.texts = state.texts.filter(x => x.id !== t.id);
+    broadcastAndSave(); renderBoard();
+  });
+  delBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  div.appendChild(delBtn);
+
+  div.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    openTextEditOverlay(div, t);
+  });
+
+  setupFreeDrag(div, t, true);
+  canvas.appendChild(div);
+}
+
+function openTextEditOverlay(div, t) {
+  // Remove any existing overlay
+  document.querySelectorAll('.text-edit-overlay').forEach(o => o.remove());
+
+  const canvas = document.getElementById('wb-canvas');
+  const ta = document.createElement('textarea');
+  ta.className = 'text-edit-overlay';
+  ta.value = t.text || '';
+  ta.style.left = t.x + 'px';
+  ta.style.top = t.y + 'px';
+  ta.style.color = t.color || '#223343';
+  ta.style.backgroundColor = t.highlight && t.highlight !== 'transparent' ? t.highlight : 'white';
+  // Auto-size
+  ta.style.width = Math.max(120, div.offsetWidth + 4) + 'px';
+  ta.style.height = Math.max(40, div.offsetHeight + 4) + 'px';
+
+  ta.addEventListener('input', () => {
+    // Auto-grow height
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(40, ta.scrollHeight) + 'px';
+  });
+
+  const commit = () => {
+    t.text = ta.value.trim() || 'Text';
+    ta.remove();
+    broadcastAndSave();
+    renderBoard();
+  };
+
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { ta.remove(); renderBoard(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(); }
+    e.stopPropagation();
+  });
+
+  ta.addEventListener('blur', commit);
+  ta.addEventListener('pointerdown', (e) => e.stopPropagation()); // don't trigger canvas pan
+
+  canvas.appendChild(ta);
+  ta.focus();
+  ta.select();
+}
+
+const var_navy = '#223343';
+
+function renderEmojiEl(e) {
+  const canvas = document.getElementById('wb-canvas');
+  const div = document.createElement('div');
+  div.className = 'board-emoji';
+  div.style.left = e.x + 'px'; div.style.top = e.y + 'px';
+  div.textContent = e.emoji;
+  div.dataset.id = e.id;
+
+  // Delete button — appears on hover
+  const delBtn = document.createElement('button');
+  delBtn.className = 'delete-btn';
+  delBtn.title = 'Remove emoji';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    state.emojis = state.emojis.filter(x => x.id !== e.id);
+    broadcastAndSave(); renderBoard();
+  });
+  delBtn.addEventListener('pointerdown', ev => ev.stopPropagation());
+  div.appendChild(delBtn);
+
+  setupFreeDrag(div, e, true);
+  canvas.appendChild(div);
+}
+
+function renderStickyEl(s) {
+  if (s.cardId) return;
+  const canvas = document.getElementById('wb-canvas');
+  const div = document.createElement('div');
+  div.className = 'board-sticky';
+  div.style.left = s.x + 'px'; div.style.top = s.y + 'px';
+  div.style.background = s.color || '#FFF9C4';
+  div.innerHTML = `<div class="sticky-handle">· · ·</div><textarea placeholder="Note…">${s.text || ''}</textarea>`;
+  const ta = div.querySelector('textarea');
+  ta.oninput = ev => { s.text = ev.target.value; broadcastAndSave(); };
+
+  // Delete button — appears on hover
+  const delBtn = document.createElement('button');
+  delBtn.className = 'delete-btn';
+  delBtn.title = 'Remove sticky';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.stickies = state.stickies.filter(x => x.id !== s.id);
+    broadcastAndSave(); renderBoard();
+  });
+  delBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  div.appendChild(delBtn);
+
+  const handle = div.querySelector('.sticky-handle');
+  canvas.appendChild(div);
+
+  let pdx2 = 0, pdy2 = 0, sx2 = 0, sy2 = 0, d2 = false;
+  handle.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    d2 = true; pdx2 = e.clientX; pdy2 = e.clientY;
+    sx2 = s.x || 0; sy2 = s.y || 0;
+    div.style.zIndex = 200;
+  }, true);
+  handle.addEventListener('pointermove', (e) => {
+    if (!d2) return;
+    const nx = sx2 + (e.clientX - pdx2) / wbScale;
+    const ny = sy2 + (e.clientY - pdy2) / wbScale;
+    div.style.left = nx + 'px'; div.style.top = ny + 'px';
+    s.x = nx; s.y = ny;
+  }, true);
+  handle.addEventListener('pointerup', () => { d2 = false; div.style.zIndex = ''; broadcastAndSave(); }, true);
+}
+
+// ============================================================
+// DRAG & SNAP
+// ============================================================
+function setupCardDrag(div, card) {
+  let pdx = 0, pdy = 0, startL = 0, startT = 0, dragging = false;
+
+  div.addEventListener('pointerdown', (e) => {
+    // Let link clicks pass through completely
+    if (e.target.closest('.card-attachments')) return;
+    if (e.target.closest('.card-btn') || e.target.closest('.sticky-gutter') || e.target.closest('.card-emoji-zone') || e.target.closest('.card-delete-btn')) return;
+    if (placingText || placingSticky || placingEmoji) return;
+    e.stopPropagation();
+    div.setPointerCapture(e.pointerId);
+    dragging = true;
+    pdx = e.clientX; pdy = e.clientY;
+    startL = parseFloat(div.style.left) || 0;
+    startT = parseFloat(div.style.top) || 0;
+    div.style.zIndex = 100;
+    div.classList.add('snapping');
+    dragCardId = card.id;
+  });
+
+  div.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = (e.clientX - pdx) / wbScale;
+    const dy = (e.clientY - pdy) / wbScale;
+    const nx = startL + dx;
+    const ny = startT + dy;
+    div.style.left = nx + 'px';
+    div.style.top = ny + 'px';
+    highlightNearestCell(nx, ny);
+  });
+
+  div.addEventListener('pointerup', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    div.style.zIndex = '';
+    div.classList.remove('snapping');
+    const nx = parseFloat(div.style.left);
+    const ny = parseFloat(div.style.top);
+    const snapped = snapToCell(card.id, nx, ny);
+    if (!snapped) {
+      card.gridCol = -1; card.gridRow = -1; card.x = nx; card.y = ny;
+    }
+    clearCellHighlights();
+    dragCardId = null;
+    broadcastAndSave(); renderBoard();
+  });
+
+  div.addEventListener('pointercancel', () => {
+    dragging = false; div.classList.remove('snapping'); dragCardId = null;
+  });
+}
+
+// Universal drag — works with mouse AND touch (pointer events API)
+function setupFreeDrag(div, obj, alwaysDraggable) {
+  let pdx = 0, pdy = 0, startObjX = 0, startObjY = 0, dragging = false;
+
+  div.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    div.setPointerCapture(e.pointerId);
+    dragging = true;
+    pdx = e.clientX; pdy = e.clientY;
+    startObjX = obj.x || 0; startObjY = obj.y || 0;
+    div.style.zIndex = 200;
+    div.style.transition = 'none';
+  });
+
+  div.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = (e.clientX - pdx) / wbScale;
+    const dy = (e.clientY - pdy) / wbScale;
+    const nx = startObjX + dx;
+    const ny = startObjY + dy;
+    div.style.left = nx + 'px';
+    div.style.top = ny + 'px';
+    obj.x = nx; obj.y = ny;
+  });
+
+  div.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false;
+    div.style.zIndex = '';
+    div.style.transition = '';
+    broadcastAndSave();
+  });
+
+  div.addEventListener('pointercancel', () => { dragging = false; });
+}
+
+// ============================================================
+// CANVAS EVENTS
+// ============================================================
+let canvasEventsReady = false;
+
+function setupCanvasEvents() {
+  if (canvasEventsReady) return;   // ← never attach twice
+  canvasEventsReady = true;
+  const wrap = document.getElementById('canvas-wrap');
+  const canvas = document.getElementById('wb-canvas');
+
+  // Pan — pointer events work for both mouse and touch on laptop touchscreens
+  wrap.addEventListener('pointerdown', (e) => {
+    // Only pan on the background elements, not on board items
+    const target = e.target;
+    const isBg = target === wrap || target === canvas || target.classList.contains('wb-grid') || target.classList.contains('grid-cell');
+    if (!isBg) return;
+    if (placingText || placingSticky || placingEmoji) { handleCanvasClick(e); return; }
+    isPanning = true;
+    wrap.setPointerCapture(e.pointerId);
+    panStart = { x: e.clientX - wbOffsetX, y: e.clientY - wbOffsetY };
+    wrap.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  wrap.addEventListener('pointermove', (e) => {
+    if (!isPanning) return;
+    wbOffsetX = e.clientX - panStart.x;
+    wbOffsetY = e.clientY - panStart.y;
+    updateCanvasTransform();
+  });
+
+  wrap.addEventListener('pointerup', () => {
+    if (isPanning) { isPanning = false; wrap.style.cursor = ''; }
+  });
+
+  wrap.addEventListener('pointercancel', () => { isPanning = false; wrap.style.cursor = ''; });
+
+  wrap.addEventListener('click', (e) => {
+    if (e.target === wrap || e.target === canvas || e.target.classList.contains('wb-grid') || e.target.classList.contains('grid-cell')) {
+      handleCanvasClick(e);
+    }
+  });
+
+  // Wheel zoom
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    zoom(delta);
+  }, { passive: false });
+}
+
+function handleCanvasClick(e) {
+  const wrap = document.getElementById('canvas-wrap');
+  const canvasRect = wrap.getBoundingClientRect();
+  const x = (e.clientX - canvasRect.left - wbOffsetX) / wbScale;
+  const y = (e.clientY - canvasRect.top - wbOffsetY) / wbScale;
+
+  if (placingText) {
+    const t = {
+      id: 'text_' + Date.now(),
+      x, y,
+      color: selectedTextColor,
+      highlight: selectedHighlightColor,
+      text: 'Click to edit'
+    };
+    state.texts.push(t);
+    placingText = false;
+    broadcastAndSave(); renderBoard();
+    // Focus new text
+    setTimeout(() => {
+      const el = document.querySelector(`[data-id="${t.id}"]`);
+      if (el) { el.focus(); el.select && el.select(); }
+    }, 50);
+    return;
+  }
+
+  if (placingSticky) {
+    const s = {
+      id: 'sticky_' + Date.now(),
+      x, y, color: selectedStickyColor, text: ''
+    };
+    state.stickies.push(s);
+    placingSticky = false;
+    broadcastAndSave(); renderBoard();
+    return;
+  }
+
+  if (placingEmoji && selectedEmojiToPlace) {
+    const em = {
+      id: 'emoji_' + Date.now(),
+      x, y, emoji: selectedEmojiToPlace
+    };
+    state.emojis.push(em);
+    placingEmoji = false; selectedEmojiToPlace = '';
+    broadcastAndSave(); renderBoard();
+    return;
+  }
+}
+
+function highlightNearestCell(x, y) {
+  clearCellHighlights();
+  const nearest = getNearestFreeCell(x, y);
+  if (nearest) {
+    const cell = document.querySelector(`.grid-cell[data-col="${nearest.col}"][data-row="${nearest.row}"]`);
+    if (cell) { cell.classList.add('highlight'); snapPreviewCell = nearest; }
+  }
+}
+
+function clearCellHighlights() {
+  document.querySelectorAll('.grid-cell.highlight').forEach(c => c.classList.remove('highlight'));
+  snapPreviewCell = null;
+}
+
+function getNearestFreeCell(x, y) {
+  const cellW = state.cardWidth + STICKY_GUTTER + CELL_GAP;
+  const cellH = state.cardHeight + CELL_GAP;
+  let best = null, bestDist = Infinity;
+  for (let r = 0; r < state.gridRows; r++) {
+    for (let c = 0; c < state.gridCols; c++) {
+      const occupied = state.cards.some(card => card.gridCol === c && card.gridRow === r && card.id !== dragCardId);
+      if (occupied) continue;
+      const cx = c * cellW + CELL_GAP + cellW / 2;
+      const cy = r * cellH + CELL_GAP + cellH / 2;
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist < bestDist) { bestDist = dist; best = { col: c, row: r }; }
+    }
+  }
+  return bestDist < (cellW * 0.8) ? best : null;
+}
+
+function snapToCell(cardId, x, y) {
+  const nearest = getNearestFreeCell(x, y);
+  if (!nearest) return false;
+  const card = state.cards.find(c => c.id === cardId);
+  if (!card) return false;
+  card.gridCol = nearest.col;
+  card.gridRow = nearest.row;
+  return true;
+}
+
+// ============================================================
+// ZOOM / PAN
+// ============================================================
+function zoom(delta) {
+  wbScale = Math.max(0.2, Math.min(3, wbScale + delta));
+  updateCanvasTransform();
+  document.getElementById('zoom-display').textContent = Math.round(wbScale * 100) + '%';
+}
+
+function resetZoom() { wbScale = 1; wbOffsetX = 0; wbOffsetY = 0; updateCanvasTransform(); document.getElementById('zoom-display').textContent = '100%'; }
+
+function updateCanvasTransform() {
+  document.getElementById('wb-canvas').style.transform = `translate(${wbOffsetX}px, ${wbOffsetY}px) scale(${wbScale})`;
+}
+
+// ============================================================
+// TOOLS
+// ============================================================
+function setTool(tool) {
+  selectedTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-' + tool);
+  if (btn) btn.classList.add('active');
+  closeAllPopups();
+  placingText = false; placingSticky = false; placingEmoji = false;
+}
+
+function toggleTextOptions() {
+  const pop = document.getElementById('text-options');
+  const isOpen = pop.classList.contains('open');
+  closeAllPopups();
+  if (!isOpen) {
+    pop.classList.add('open');
+    document.getElementById('tool-text').classList.add('active');
+    positionPopup(pop, 'tool-text');
+  }
+}
+
+function toggleStickyPicker() {
+  const pop = document.getElementById('sticky-picker');
+  const isOpen = pop.classList.contains('open');
+  closeAllPopups();
+  if (!isOpen) {
+    pop.classList.add('open');
+    document.getElementById('tool-sticky').classList.add('active');
+    positionPopup(pop, 'tool-sticky');
+  }
+}
+
+function toggleEmojiPicker() {
+  const pop = document.getElementById('emoji-picker');
+  const isOpen = pop.classList.contains('open');
+  closeAllPopups();
+  if (!isOpen) {
+    pop.classList.add('open');
+    document.getElementById('tool-emoji').classList.add('active');
+    positionPopup(pop, 'tool-emoji');
+  }
+}
+
+function positionPopup(popup, btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  const btnRect = btn.getBoundingClientRect();
+  popup.style.top = Math.min(btnRect.top, window.innerHeight - 320) + 'px';
+  popup.style.left = '84px';
+}
+
+function closeAllPopups() {
+  document.querySelectorAll('.text-options-popup, .emoji-popup, .sticky-popup').forEach(p => p.classList.remove('open'));
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.wb-toolbar')) closeAllPopups();
+});
+
+// ============================================================
+// COMMENTS
+// ============================================================
+function openCommentPanel(cardId) {
+  selectedCardId = cardId;
+  const card = state.cards.find(c => c.id === cardId);
+  document.getElementById('comment-card-label').textContent = card ? card.author + '\'s card' : '';
+  document.getElementById('comment-panel').classList.add('open');
+  renderComments();
+}
+
+function closeCommentPanel() {
+  document.getElementById('comment-panel').classList.remove('open');
+  selectedCardId = null;
+}
+
+function renderComments() {
+  if (!selectedCardId) return;
+  const list = document.getElementById('comments-list');
+  const comments = (state.comments[selectedCardId] || []);
+  list.innerHTML = '';
+  if (comments.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted); text-align:center; padding:24px; font-size:0.85rem;">No comments yet. Be the first!</div>';
+    return;
+  }
+  comments.forEach(c => {
+    const div = document.createElement('div'); div.className = 'comment-bubble fade-in';
+    div.innerHTML = `<div><span class="author">${c.author}</span><span class="time">${c.time}</span></div>${c.text}`;
+    list.appendChild(div);
+  });
+  list.scrollTop = list.scrollHeight;
+}
+
+function submitComment() {
+  const inp = document.getElementById('comment-input');
+  const text = inp.value.trim();
+  if (!text || !selectedCardId) return;
+  if (!state.comments[selectedCardId]) state.comments[selectedCardId] = [];
+  state.comments[selectedCardId].push({
+    author: currentUser.name || 'Anonymous',
+    text,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  inp.value = '';
+  broadcastAndSave();
+  renderComments();
+  renderBoard(); // refresh comment count badge
+}
+
+document.getElementById('comment-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); }
+});
+
+// ============================================================
+// UPLOAD TO BOARD
+// ============================================================
+function uploadToBoard(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  files.forEach(async file => {
+    const card = {
+      id: 'card_upload_' + Date.now() + '_' + Math.random().toString(36).substr(2,4),
+      author: currentUser.name || 'Upload',
+      answers: [`Uploaded: ${file.name}`],
+      files: [{ name: file.name, type: file.type, data: null }],
+      gridCol: -1, gridRow: -1,
+      x: 200, y: 200,
+      color: '#223343',
+      emojis: []
+    };
+    outer: for (let r = 0; r < state.gridRows; r++) {
+      for (let c = 0; c < state.gridCols; c++) {
+        if (!state.cards.some(cc => cc.gridCol === c && cc.gridRow === r)) {
+          card.gridCol = c; card.gridRow = r; break outer;
+        }
+      }
+    }
+    const key = fileId(card.id, 0);
+    await storeFile(key, file);
+    state.cards.push(card);
+    broadcastAndSave(); renderBoard();
+    showToast('📎 ' + file.name + ' added to board!');
+  });
+  e.target.value = '';
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+refreshAdminViews();
+renderGridPreview();
+</script>
+</body>
+</html>
