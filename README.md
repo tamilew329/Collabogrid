@@ -122,7 +122,7 @@ Feedback and ideas are welcome.
 
 ## 📄 License
 
-MIT (or choose your preferred license)
+MIT 
 
 ---
 
