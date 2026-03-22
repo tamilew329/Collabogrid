@@ -1,5 +1,7 @@
 # 📌 CollabBoard — Collaborative Whiteboard for Learning & Workshops
 
+<img width="3840" height="1823" alt="CollabBoard — Collaborative Whiteboard" src="https://github.com/user-attachments/assets/767b5bd4-c8c7-4be6-829c-48c3d8a7d17f" />
+
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 ![Built With](https://img.shields.io/badge/built%20with-HTML%20%7C%20CSS%20%7C%20JavaScript-blue)
 ![Realtime](https://img.shields.io/badge/realtime-Supabase-green)
@@ -7,6 +9,7 @@
 A lightweight, browser-based collaborative whiteboard designed for **interactive sessions, workshops, and classrooms**.
 
 Participants respond to prompts and see their ideas appear as cards on a shared board, creating a live, visual space for discussion and reflection.
+
 
 ---
 
