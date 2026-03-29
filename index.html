@@ -594,6 +594,71 @@
   .card-body {
     padding: 10px 12px; flex: 1; overflow-y: auto;
     font-size: 0.83rem; color: var(--text); line-height: 1.6;
+    max-height: 120px;
+    scrollbar-width: thin;
+  }
+  /* Expand button on card */
+  .card-expand-btn {
+    background: rgba(255,255,255,0.18); border: none;
+    color: white; border-radius: 6px; padding: 3px 7px;
+    font-size: 0.72rem; cursor: pointer; transition: background 0.15s;
+    display: flex; align-items: center; gap: 3px; z-index: 1;
+  }
+  .card-expand-btn:hover { background: rgba(255,255,255,0.38); }
+
+  /* Card expand modal overlay */
+  .card-modal-overlay {
+    position: fixed; inset: 0; background: rgba(10,20,30,0.55);
+    backdrop-filter: blur(6px); z-index: 2000;
+    display: none; align-items: center; justify-content: center;
+  }
+  .card-modal-overlay.open { display: flex; }
+  .card-modal-box {
+    background: var(--surface); border-radius: 20px;
+    padding: 0; width: min(560px, 92vw); max-height: 82vh;
+    box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+    animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    overflow: hidden;
+  }
+  .card-modal-header {
+    padding: 14px 18px 12px;
+    display: flex; align-items: center; gap: 10px;
+    border-radius: 20px 20px 0 0; flex-shrink: 0;
+  }
+  .card-modal-header .card-avatar {
+    width: 32px; height: 32px; font-size: 0.85rem;
+  }
+  .card-modal-header .card-author {
+    font-size: 0.9rem; flex: 1;
+  }
+  .card-modal-close {
+    background: rgba(255,255,255,0.2); border: none;
+    color: white; border-radius: 8px; padding: 4px 10px;
+    font-size: 0.85rem; cursor: pointer; z-index: 1;
+    transition: background 0.15s;
+  }
+  .card-modal-close:hover { background: rgba(255,255,255,0.38); }
+  .card-modal-body {
+    padding: 18px 22px; overflow-y: auto; flex: 1;
+  }
+  .card-modal-answer {
+    border-left: 3px solid;
+    padding: 6px 0 6px 12px;
+    margin-bottom: 14px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .card-modal-answer:last-child { margin-bottom: 0; }
+  .card-modal-footer {
+    padding: 12px 22px; border-top: 1px solid var(--border);
+    background: var(--bg); border-radius: 0 0 20px 20px;
+    display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+  }
+  .card-modal-label {
+    font-size: 0.72rem; color: var(--muted); flex: 1;
   }
   /* Answer items — left accent bar instead of Q1 label */
   .card-answer {
@@ -603,6 +668,8 @@
     opacity: 0.9;
     font-size: 0.82rem;
     line-height: 1.55;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
   .card-answer:last-child { margin-bottom: 0; }
 
@@ -686,13 +753,13 @@
   /* ── Sticky tab panel — sits in the right gutter of the cell ── */
   .sticky-gutter {
     position: absolute;
-    top: 0; right: -58px;   /* sits outside the card in the cell gutter */
-    width: 54px;
+    top: 0; right: -158px;   /* sits outside the card in the cell gutter */
+    width: 150px;
     display: flex; flex-direction: column; gap: 3px;
     z-index: 40;
   }
   .sticky-tab {
-    width: 52px;
+    width: 146px;
     border-radius: 4px 6px 6px 4px;
     box-shadow: 2px 2px 6px rgba(0,0,0,0.13);
     cursor: pointer;
@@ -703,22 +770,23 @@
   }
   /* Collapsed: just a narrow colour tab showing a snippet */
   .sticky-tab.collapsed {
-    height: 28px;
-    display: flex; align-items: center; padding: 0 5px;
+    height: 36px;
+    display: flex; align-items: center; padding: 0 8px;
   }
   .sticky-tab.collapsed .tab-preview {
-    font-size: 0.6rem; line-height: 1.2; color: rgba(0,0,0,0.55);
+    font-size: 0.7rem; line-height: 1.3; color: rgba(0,0,0,0.65);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     width: 100%;
   }
   /* Expanded: full mini-note */
   .sticky-tab.expanded {
-    min-height: 80px; padding: 6px;
+    min-height: 90px; padding: 8px;
     display: flex; flex-direction: column; gap: 4px;
   }
   .sticky-tab.expanded .tab-text {
-    font-size: 0.68rem; line-height: 1.4; color: #444;
+    font-size: 0.75rem; line-height: 1.45; color: #333;
     flex: 1; word-break: break-word;
+    max-height: 180px; overflow-y: auto;
   }
   .sticky-tab .tab-actions {
     display: none; gap: 3px; justify-content: flex-end;
@@ -726,14 +794,14 @@
   .sticky-tab.expanded .tab-actions { display: flex; }
   .tab-btn {
     background: rgba(0,0,0,0.1); border: none; border-radius: 3px;
-    font-size: 0.6rem; padding: 2px 4px; cursor: pointer; color: #333;
+    font-size: 0.65rem; padding: 2px 5px; cursor: pointer; color: #333;
   }
   .tab-btn:hover { background: rgba(0,0,0,0.2); }
   /* Add-sticky button at bottom of gutter */
   .sticky-add-btn {
-    width: 52px; height: 24px; border-radius: 4px;
+    width: 146px; height: 28px; border-radius: 4px;
     border: 1.5px dashed rgba(34,51,67,0.25);
-    background: transparent; cursor: pointer; font-size: 0.8rem;
+    background: transparent; cursor: pointer; font-size: 0.85rem;
     color: var(--muted); display: flex; align-items: center; justify-content: center;
     transition: all 0.15s;
   }
@@ -745,7 +813,7 @@
     position: absolute; z-index: 15; cursor: grab;
     padding: 6px 10px; border-radius: 6px;
     font-family: 'DM Sans'; font-size: 1rem; font-weight: 500;
-    min-width: 60px;
+    min-width: 60px; max-width: 320px;
     border: 2px solid transparent;
     user-select: none;
     white-space: pre-wrap;
@@ -767,10 +835,11 @@
     border: 2px solid var(--cyan);
     border-radius: 6px; padding: 5px 9px;
     font-family: 'DM Sans'; font-size: 1rem; font-weight: 500;
-    outline: none; resize: none; overflow: hidden;
+    outline: none; resize: both; overflow: auto;
     box-shadow: 0 0 0 4px rgba(0,178,205,0.15);
-    min-width: 80px; min-height: 32px;
+    min-width: 120px; max-width: 320px; min-height: 32px;
     background: white;
+    white-space: pre-wrap; word-break: break-word;
   }
 
   /* Floating emojis on board */
@@ -876,6 +945,29 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* Admin banner color swatches */
+  .banner-color-swatch {
+    width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+    border: 3px solid transparent; transition: all 0.15s;
+  }
+  .banner-color-swatch:hover { transform: scale(1.12); }
+  .banner-color-swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px white inset; }
+
+  /* Admin Banner bar on whiteboard */
+  .wb-banner {
+    width: 100%; padding: 9px 24px;
+    font-size: 0.88rem; font-weight: 500;
+    display: none; align-items: center; gap: 12px;
+    flex-shrink: 0; z-index: 90;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    line-height: 1.4;
+    animation: bannerSlide 0.3s ease;
+  }
+  @keyframes bannerSlide { from { transform: translateY(-100%); opacity: 0; } }
+  .wb-banner.visible { display: flex; }
+  .wb-banner-icon { font-size: 1rem; flex-shrink: 0; }
+  .wb-banner-text { flex: 1; }
+
   /* Uploading card preview */
   .upload-preview {
     position: fixed; top: 70px; right: 20px;
@@ -886,6 +978,16 @@
   }
   .upload-preview.show { display: block; }
   .upload-preview h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: var(--navy); }
+
+  /* Scroll fade hint at the bottom of card body */
+  .card-body-wrap {
+    position: relative; flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card-body-fade {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 28px;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.9));
+    pointer-events: none; border-radius: 0 0 2px 2px;
+  }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
@@ -950,6 +1052,7 @@
     <div class="admin-nav-item" onclick="adminNav('codes')" data-section="codes">🔑 Access Codes</div>
     <div class="admin-nav-item" onclick="adminNav('submissions')" data-section="submissions">📋 Submissions</div>
     <div class="admin-nav-item" onclick="adminNav('whiteboard-admin')" data-section="whiteboard-admin">🖼️ Whiteboard</div>
+    <div class="admin-nav-item" onclick="adminNav('banner')" data-section="banner">📢 Banner</div>
     <div style="flex:1"></div>
     <div class="admin-nav-item" onclick="goHome()">← Back to Home</div>
   </div>
@@ -984,7 +1087,7 @@
           <label>Width (px)</label>
           <div class="num-input">
             <button class="num-btn" onclick="changeCard('w',-20)">−</button>
-            <div class="num-display" id="card-w-display">200</div>
+            <div class="num-display" id="card-w-display">260</div>
             <button class="num-btn" onclick="changeCard('w',20)">+</button>
           </div>
         </div>
@@ -1073,10 +1176,36 @@
         </div>
       </div>
     </div>
+    <!-- BANNER -->
+    <div class="admin-section" id="admin-banner">
+      <div class="section-title">Board Banner</div>
+      <p class="section-sub">Display a message or instructions at the top of the whiteboard for all participants. Changes take effect immediately.</p>
+      <div class="config-card">
+        <h3>Banner Message</h3>
+        <textarea id="banner-text-input" placeholder="e.g. Welcome! Please add your card before 10:30. Drag cards to rearrange them on the board." style="width:100%; min-height:90px; padding:12px 14px; border:2px solid var(--border); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.95rem; background:var(--bg); color:var(--text); resize:vertical; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--cyan)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        <h3 style="margin-top:16px;">Banner Colour</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <div class="banner-color-swatch" data-color="#223343" style="background:#223343;" onclick="selectBannerColor(this)" title="Navy"></div>
+          <div class="banner-color-swatch" data-color="#005f73" style="background:#005f73;" onclick="selectBannerColor(this)" title="Teal"></div>
+          <div class="banner-color-swatch" data-color="#9EA700" style="background:#9EA700;" onclick="selectBannerColor(this)" title="Olive"></div>
+          <div class="banner-color-swatch" data-color="#CA433C" style="background:#CA433C;" onclick="selectBannerColor(this)" title="Red"></div>
+          <div class="banner-color-swatch" data-color="#FFBA00" style="background:#FFBA00;" onclick="selectBannerColor(this)" title="Amber"></div>
+          <div class="banner-color-swatch" data-color="#2d6a4f" style="background:#2d6a4f;" onclick="selectBannerColor(this)" title="Forest"></div>
+        </div>
+        <div style="margin-top:16px; display:flex; align-items:center; gap:12px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer;">
+            <input type="checkbox" id="banner-visible-toggle" onchange="toggleBannerPreview()" style="width:16px;height:16px;cursor:pointer;">
+            Show banner on the whiteboard
+          </label>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-cyan" onclick="saveBanner()">📢 Save &amp; Publish Banner</button>
+        <button class="btn btn-ghost" onclick="clearBanner()">✕ Clear Banner</button>
+      </div>
+    </div>
   </div>
 </div>
-
-<!-- ==================== PROMPT SCREEN ==================== -->
 <div id="screen-prompt" class="screen">
   <div class="prompt-container fade-in">
     <div class="prompt-header">
@@ -1129,6 +1258,12 @@
       <span id="wb-user-name-display"></span>
     </div>
     <button class="btn btn-ghost btn-sm" style="color:white; border-color:rgba(255,255,255,0.2);" onclick="goHome()">← Exit</button>
+  </div>
+
+  <!-- Admin banner bar -->
+  <div class="wb-banner" id="wb-banner">
+    <span class="wb-banner-icon">📢</span>
+    <span class="wb-banner-text" id="wb-banner-text"></span>
   </div>
 
   <div class="wb-body">
@@ -1220,6 +1355,21 @@
   </div>
 </div>
 
+<!-- Card Full-Text Modal -->
+<div class="card-modal-overlay" id="card-modal-overlay" onclick="closeCardModal(event)">
+  <div class="card-modal-box" id="card-modal-box">
+    <div class="card-modal-header" id="card-modal-header">
+      <div class="card-avatar" id="card-modal-avatar"></div>
+      <div class="card-author" id="card-modal-author"></div>
+      <button class="card-modal-close" onclick="closeCardModalDirect()">✕ Close</button>
+    </div>
+    <div class="card-modal-body" id="card-modal-body"></div>
+    <div class="card-modal-footer">
+      <span class="card-modal-label">Full card view — scroll to read all responses</span>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1241,7 +1391,7 @@ let state = {
   userCode: DEFAULT_USER_CODE,
   gridCols: 4,
   gridRows: 3,
-  cardWidth: 200,
+  cardWidth: 260,
   cardHeight: 180,
   prompts: ['What is one idea you are bringing into today\'s session?', 'What do you hope to learn or share?'],
   cards: [],      // board cards
@@ -1249,7 +1399,8 @@ let state = {
   emojis: [],     // board floating emojis
   stickies: [],   // board stickies
   comments: {},   // { cardId: [ { author, text, time } ] }
-  submissions: [] // raw prompt submissions
+  submissions: [], // raw prompt submissions
+  banner: { text: '', visible: false, color: '#223343' } // admin banner
 };
 
 let currentUser = { name: '', isAdmin: false };
@@ -1273,7 +1424,7 @@ let dragCardId = null;
 let snapPreviewCell = null;
 const CELL_GAP = 16;
 const CELL_PAD = 10;
-const STICKY_GUTTER = 70; // right-side gutter for sticky tabs inside each cell
+const STICKY_GUTTER = 150; // right-side gutter for sticky tabs inside each cell
 
 // BroadcastChannel — same-tab fallback when Supabase is unavailable
 const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('collabboard') : null;
@@ -1330,7 +1481,7 @@ async function initSupabase() {
         Object.assign(state, incoming);
         const wbActive    = document.getElementById('screen-whiteboard').classList.contains('active');
         const adminActive = document.getElementById('screen-admin').classList.contains('active');
-        if (wbActive && canvasEventsReady && !isUserTyping()) renderBoard();
+        if (wbActive && canvasEventsReady && !isUserTyping()) { renderBoard(); renderBanner(); }
         if (adminActive) refreshAdminViews();
         updatePresenceDot(true);
       })
@@ -1686,6 +1837,7 @@ function refreshAdminViews() {
   document.getElementById('user-code-display').textContent = state.userCode;
   renderGridPreview();
   renderAdminPrompts();
+  refreshBannerAdmin();
 }
 
 function enterWhiteboardAsAdmin() {
@@ -1854,6 +2006,7 @@ function initWhiteboard() {
   buildEmojiPicker();
   buildColorPickers();
   renderBoard();
+  renderBanner();
   setupCanvasEvents();
 }
 
@@ -1983,7 +2136,7 @@ function renderCard(card) {
   div.style.height = cardH + 'px';
 
   const answersHtml = (card.answers || []).map((a) =>
-    a ? `<div class="card-answer" style="border-color:${card.color}55;">${a.substring(0,140)}${a.length>140?'…':''}</div>` : ''
+    a ? `<div class="card-answer" style="border-color:${card.color}55;">${a}</div>` : ''
   ).join('');
 
   const emojisHtml = (card.emojis || []).map(e => `<span class="card-emoji">${e}</span>`).join('');
@@ -2004,6 +2157,7 @@ function renderCard(card) {
     <div class="card-header" style="background:${card.color};">
       <div class="card-avatar">${initial}</div>
       <div class="card-author">${card.author}</div>
+      <button class="card-expand-btn" title="View full card" onclick="openCardModal(event,'${card.id}')">⤢</button>
       <button class="card-btn" onclick="openCommentPanel('${card.id}')">💬 ${countBadge}</button>
       ${deleteBtnHtml}
     </div>
@@ -2093,11 +2247,12 @@ function toggleStickyTab(tab, s, cardId) {
   if (!isExpanded) {
     tab.classList.remove('collapsed');
     tab.classList.add('expanded');
+    const canAct = currentUser.isAdmin || !s.author || s.author === currentUser.name;
     tab.innerHTML = `
       <div class="tab-text">${s.text || '(empty)'}</div>
       <div class="tab-actions">
-        <button class="tab-btn" onclick="editStickyTab(event,'${s.id}')">✏️</button>
-        <button class="tab-btn" onclick="deleteStickyTab(event,'${s.id}','${cardId}')">✕</button>
+        ${canAct ? `<button class="tab-btn" onclick="editStickyTab(event,'${s.id}')">✏️</button>` : ''}
+        ${canAct ? `<button class="tab-btn" onclick="deleteStickyTab(event,'${s.id}','${cardId}')">✕</button>` : ''}
       </div>`;
   }
   tab._stickyData = s;
@@ -2136,7 +2291,7 @@ function openStickyInputForCard(cardId, gutter) {
   let chosenColor = stickyColors[0];
   stickyColors.forEach(col => {
     const sw = document.createElement('div');
-    sw.style.cssText = `width:12px;height:12px;border-radius:50%;background:${col};cursor:pointer;border:1.5px solid rgba(0,0,0,0.15);flex-shrink:0;`;
+    sw.style.cssText = `width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:1.5px solid rgba(0,0,0,0.15);flex-shrink:0;`;
     sw.addEventListener('pointerdown', e => e.stopPropagation());
     sw.onclick = () => {
       chosenColor = col;
@@ -2150,7 +2305,7 @@ function openStickyInputForCard(cardId, gutter) {
 
   const ta = document.createElement('textarea');
   ta.placeholder = 'Type your note…';
-  ta.style.cssText = 'width:50px;height:60px;font-size:0.65rem;border:1.5px solid rgba(0,178,205,0.5);border-radius:4px;padding:4px;resize:none;font-family:DM Sans,sans-serif;outline:none;background:white;';
+  ta.style.cssText = 'width:140px;height:80px;font-size:0.78rem;border:1.5px solid rgba(0,178,205,0.5);border-radius:4px;padding:6px;resize:none;font-family:DM Sans,sans-serif;outline:none;background:white;';
 
   // Stop ALL events on the textarea from bubbling to drag/canvas handlers
   ta.addEventListener('pointerdown', e => e.stopPropagation());
@@ -2162,14 +2317,14 @@ function openStickyInputForCard(cardId, gutter) {
 
   const saveBtn = document.createElement('button');
   saveBtn.textContent = 'Add ✓';
-  saveBtn.style.cssText = 'font-size:0.6rem;padding:3px;border:none;background:var(--navy);color:white;border-radius:3px;cursor:pointer;';
+  saveBtn.style.cssText = 'font-size:0.72rem;padding:5px 8px;border:none;background:var(--navy);color:white;border-radius:4px;cursor:pointer;width:100%;';
   saveBtn.addEventListener('pointerdown', e => e.stopPropagation());
 
   function saveInlineSticky() {
     const text = ta.value.trim();
     wrap.remove(); // remove first so renderBoard doesn't find an orphaned input
     if (!text) return;
-    state.stickies.push({ id: 'sticky_' + Date.now(), cardId, color: chosenColor, text, x: 0, y: 0 });
+    state.stickies.push({ id: 'sticky_' + Date.now(), cardId, color: chosenColor, text, x: 0, y: 0, author: currentUser.name || '' });
     broadcastAndSave();
     renderBoard();
   }
@@ -2214,13 +2369,15 @@ function renderTextEl(t) {
   div.style.color = t.color || '#223343';
   div.style.backgroundColor = t.highlight || 'transparent';
   div.dataset.id = t.id;
-  div.innerHTML = (t.text || 'Text') + '<span class="edit-hint">click to edit · drag to move</span>';
+  div.innerHTML = (t.text || 'Text') + '<span class="edit-hint">click to edit · Shift+Enter saves · drag to move</span>';
 
-  // Delete button — appears on hover
+  // Delete button — visible to author or admin
+  const canDelete = currentUser.isAdmin || !t.author || t.author === currentUser.name;
   const delBtn = document.createElement('button');
   delBtn.className = 'delete-btn';
   delBtn.title = 'Remove text';
   delBtn.textContent = '✕';
+  if (!canDelete) delBtn.style.display = 'none';
   delBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     state.texts = state.texts.filter(x => x.id !== t.id);
@@ -2277,7 +2434,7 @@ function openTextEditOverlay(div, t) {
     renderBoard();
   };
 
-  // Keyboard: Enter saves, Escape cancels, Shift+Enter is a newline
+  // Keyboard: Shift+Enter or Escape saves; plain Enter inserts newline for wrapping
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       committed = true;
@@ -2285,7 +2442,7 @@ function openTextEditOverlay(div, t) {
       document.removeEventListener('pointerdown', outsideClick, true);
       renderBoard();
     }
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(); }
+    if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); commit(); }
     e.stopPropagation();
   });
 
@@ -2316,11 +2473,13 @@ function renderEmojiEl(e) {
   div.textContent = e.emoji;
   div.dataset.id = e.id;
 
-  // Delete button — appears on hover
+  // Delete button — visible to author or admin
+  const canDeleteEmoji = currentUser.isAdmin || !e.author || e.author === currentUser.name;
   const delBtn = document.createElement('button');
   delBtn.className = 'delete-btn';
   delBtn.title = 'Remove emoji';
   delBtn.textContent = '✕';
+  if (!canDeleteEmoji) delBtn.style.display = 'none';
   delBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
     state.emojis = state.emojis.filter(x => x.id !== e.id);
@@ -2367,11 +2526,13 @@ function renderStickyEl(s) {
   ta.addEventListener('keydown', e => e.stopPropagation());
   ta.addEventListener('pointerdown', e => e.stopPropagation());
 
-  // Delete button — appears on hover
+  // Delete button — visible to author or admin
+  const canDeleteSticky = currentUser.isAdmin || !s.author || s.author === currentUser.name;
   const delBtn = document.createElement('button');
   delBtn.className = 'delete-btn';
   delBtn.title = 'Remove sticky';
   delBtn.textContent = '✕';
+  if (!canDeleteSticky) delBtn.style.display = 'none';
   delBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     state.stickies = state.stickies.filter(x => x.id !== s.id);
@@ -2410,7 +2571,7 @@ function setupCardDrag(div, card) {
   div.addEventListener('pointerdown', (e) => {
     // Let link clicks pass through completely
     if (e.target.closest('.card-attachments')) return;
-    if (e.target.closest('.card-btn') || e.target.closest('.sticky-gutter') || e.target.closest('.card-emoji-zone') || e.target.closest('.card-delete-btn')) return;
+    if (e.target.closest('.card-btn') || e.target.closest('.sticky-gutter') || e.target.closest('.card-emoji-zone') || e.target.closest('.card-delete-btn') || e.target.closest('.card-expand-btn')) return;
     if (placingText || placingSticky || placingEmoji) return;
     e.stopPropagation();
     div.setPointerCapture(e.pointerId);
@@ -2561,7 +2722,8 @@ function handleCanvasClick(e) {
       x, y,
       color: selectedTextColor,
       highlight: selectedHighlightColor,
-      text: 'Click to edit'
+      text: 'Click to edit',
+      author: currentUser.name || ''
     };
     state.texts.push(t);
     placingText = false;
@@ -2577,7 +2739,8 @@ function handleCanvasClick(e) {
   if (placingSticky) {
     const s = {
       id: 'sticky_' + Date.now(),
-      x, y, color: selectedStickyColor, text: ''
+      x, y, color: selectedStickyColor, text: '',
+      author: currentUser.name || ''
     };
     state.stickies.push(s);
     placingSticky = false;
@@ -2588,7 +2751,8 @@ function handleCanvasClick(e) {
   if (placingEmoji && selectedEmojiToPlace) {
     const em = {
       id: 'emoji_' + Date.now(),
-      x, y, emoji: selectedEmojiToPlace
+      x, y, emoji: selectedEmojiToPlace,
+      author: currentUser.name || ''
     };
     state.emojis.push(em);
     placingEmoji = false; selectedEmojiToPlace = '';
@@ -2715,6 +2879,117 @@ document.addEventListener('click', (e) => {
 });
 
 // ============================================================
+// BANNER
+// ============================================================
+let selectedBannerColor = '#223343';
+
+function renderBanner() {
+  const b = state.banner || { text: '', visible: false, color: '#223343' };
+  const el = document.getElementById('wb-banner');
+  const textEl = document.getElementById('wb-banner-text');
+  if (!el || !textEl) return;
+  if (b.visible && b.text && b.text.trim()) {
+    textEl.textContent = b.text;
+    const bg = b.color || '#223343';
+    // Pick readable text colour: white on dark, dark on light
+    const isDark = isColorDark(bg);
+    el.style.background = bg;
+    el.style.color = isDark ? 'white' : '#1a2830';
+    el.querySelector('.wb-banner-icon').style.opacity = isDark ? '0.85' : '0.7';
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+  }
+}
+
+function isColorDark(hex) {
+  const c = hex.replace('#','');
+  if (c.length < 6) return true;
+  const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
+function saveBanner() {
+  const text = document.getElementById('banner-text-input').value.trim();
+  const visible = document.getElementById('banner-visible-toggle').checked;
+  if (!state.banner) state.banner = {};
+  state.banner.text = text;
+  state.banner.visible = visible;
+  state.banner.color = selectedBannerColor;
+  broadcastAndSave();
+  showToast('📢 Banner ' + (visible ? 'published!' : 'saved (hidden).'));
+}
+
+function clearBanner() {
+  document.getElementById('banner-text-input').value = '';
+  document.getElementById('banner-visible-toggle').checked = false;
+  state.banner = { text: '', visible: false, color: selectedBannerColor };
+  broadcastAndSave();
+  showToast('Banner cleared.');
+}
+
+function toggleBannerPreview() {
+  // Live preview while admin tweaks visibility toggle
+  const visible = document.getElementById('banner-visible-toggle').checked;
+  const text = document.getElementById('banner-text-input').value.trim();
+  if (!state.banner) state.banner = {};
+  state.banner.visible = visible;
+  state.banner.text = text;
+  state.banner.color = selectedBannerColor;
+}
+
+function selectBannerColor(el) {
+  document.querySelectorAll('.banner-color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedBannerColor = el.dataset.color;
+  if (state.banner) state.banner.color = selectedBannerColor;
+}
+
+function refreshBannerAdmin() {
+  const b = state.banner || {};
+  const inp = document.getElementById('banner-text-input');
+  const tog = document.getElementById('banner-visible-toggle');
+  if (inp) inp.value = b.text || '';
+  if (tog) tog.checked = !!b.visible;
+  selectedBannerColor = b.color || '#223343';
+  document.querySelectorAll('.banner-color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.color === selectedBannerColor);
+  });
+}
+
+// ============================================================
+// CARD FULL-TEXT MODAL
+// ============================================================
+function openCardModal(e, cardId) {
+  e.stopPropagation();
+  const card = state.cards.find(c => c.id === cardId);
+  if (!card) return;
+
+  const initial = card.author ? card.author.trim()[0].toUpperCase() : '?';
+  document.getElementById('card-modal-avatar').textContent = initial;
+  document.getElementById('card-modal-author').textContent = card.author;
+  document.getElementById('card-modal-header').style.background = card.color;
+
+  const bodyEl = document.getElementById('card-modal-body');
+  const answersHtml = (card.answers || []).map((a) =>
+    a ? `<div class="card-modal-answer" style="border-color:${card.color};">${a}</div>` : ''
+  ).join('');
+  bodyEl.innerHTML = answersHtml || '<p style="color:var(--muted); font-size:0.85rem;">No responses yet.</p>';
+
+  document.getElementById('card-modal-overlay').classList.add('open');
+}
+
+function closeCardModal(e) {
+  if (e.target === document.getElementById('card-modal-overlay')) {
+    document.getElementById('card-modal-overlay').classList.remove('open');
+  }
+}
+
+function closeCardModalDirect() {
+  document.getElementById('card-modal-overlay').classList.remove('open');
+}
+
+// ============================================================
 // COMMENTS
 // ============================================================
 function openCommentPanel(cardId) {
@@ -2765,6 +3040,13 @@ function submitComment() {
 
 document.getElementById('comment-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); }
+});
+
+// Close card modal on ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('card-modal-overlay').classList.remove('open');
+  }
 });
 
 // ============================================================
